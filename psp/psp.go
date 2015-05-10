@@ -10,16 +10,17 @@ import (
 	"time"
 
 	"github.com/tscholl2/psp/prime"
-	"github.com/tscholl2/psp/psp"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/packet" //I need this 'golang.org/x/crypto/openpgp'
 )
+
+var bigOne = big.NewInt(1)
 
 // NewEntity returns a new openpgp entity for the given rsa key
 // mostly to be used with NewRsaKey()
 func NewEntity(name string, comment string, email string, privateKey *rsa.PrivateKey) *openpgp.Entity {
 	//date := time.Date(2015, time.March, 14, 9, 26, 53, 58, time.UTC) //pi day!
-	date = time.Now()
+	date := time.Now()
 	packetPrivate := packet.NewRSAPrivateKey(date, privateKey)
 	packetPublic := packet.NewRSAPublicKey(date, privateKey.Public().(*rsa.PublicKey))
 	userID := packet.NewUserId(name, comment, email)
@@ -41,23 +42,54 @@ func NewEntity(name string, comment string, email string, privateKey *rsa.Privat
 
 // NewRsaKey returns a new rsa private key
 // with sassy primes
-func NewRsaKey() *rsa.PrivateKey {
-	p, q, err := psp.Primes()
-	if err != nil {
-		fmt.Errorf("Error getting primes: %s", err.Error())
+func NewRsaKey() (priv *rsa.PrivateKey, err error) {
+	//initialize values
+	var p, q, d, n *big.Int
+	priv = new(rsa.PrivateKey)
+	priv.E = 65537
+	bits := 2048
+
+SearchForPrimes:
+	for {
+
+		p, q, err = Primes()
+		if err != nil {
+			fmt.Errorf("Error getting primes: %s", err.Error())
+			return
+		}
+
+		n = new(big.Int).Mul(p, q)
+		pminus1 := new(big.Int).Sub(p, bigOne)
+		qminus1 := new(big.Int).Sub(q, bigOne)
+		totient := new(big.Int).Mul(pminus1, qminus1)
+
+		if n.BitLen() != bits {
+			// This should happen less than the universe
+			// exploding or something
+			continue SearchForPrimes
+		}
+
+		g := new(big.Int)
+		d = new(big.Int)
+		y := new(big.Int)
+		e := big.NewInt(int64(priv.E))
+		g.GCD(d, y, e, totient)
+
+		if g.Cmp(bigOne) == 0 {
+			if d.Sign() < 0 {
+				d.Add(d, totient)
+			}
+
+			break
+		}
 	}
-	E := big.NewInt(65537)
-	D := new(big.Int).ModInverse(E, new(big.Int).Mul(p, q))
 
-	privateKey := rsa.PrivateKey{
-		D:      D,
-		Primes: []*big.Int{p, q},
-		PublicKey: rsa.PublicKey{
-			N: new(big.Int).Mul(p, q),
-			E: int(E.Int64())}}
-	privateKey.Precompute()
+	priv.D = d
+	priv.Primes = []*big.Int{p, q}
+	priv.N = new(big.Int).Mul(p, q)
+	priv.Precompute()
 
-	return &privateKey
+	return
 }
 
 // Primes returns p,q so that the

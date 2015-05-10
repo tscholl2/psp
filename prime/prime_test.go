@@ -1,9 +1,16 @@
 package prime
 
 import (
+	"crypto/rand"
 	"math/big"
 	"testing"
 )
+
+func randBig(bits int) *big.Int {
+	bytes := make([]byte, bits/8)
+	rand.Read(bytes)
+	return new(big.Int).SetBytes(bytes)
+}
 
 func check(t *testing.T, expected interface{}, got interface{}) {
 	if got != expected {
@@ -39,4 +46,12 @@ func TestNextPrime(t *testing.T) {
 	n, _ = new(big.Int).SetString("563478564785638746587634875", 10)
 	p, _ = new(big.Int).SetString("563478564785638746587634881", 10)
 	checkBigNumbers(t, p, NextPrime(n))
+}
+
+var benchmarkNumber = randBig(1024)
+
+func BenchmarkNextPrime(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		NextPrime(benchmarkNumber)
+	}
 }

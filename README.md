@@ -1,5 +1,6 @@
-# sassypgp
-A sassy PGP key/cert generator
+# psp (Pretty Sassy Privacy)
+
+A sassier PGP
 
 Based on [https://rya.nc/cert-tricks.html][https://rya.nc/cert-tricks.html]
 

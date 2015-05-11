@@ -90,7 +90,7 @@ func BPSW(p *big.Int) bool {
 	// Step 3: Lucas-Selfridge test
 
 	//
-	// TODO
+	// TODO lucas-selfridge test
 	//
 
 	return true

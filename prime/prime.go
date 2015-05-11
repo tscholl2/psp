@@ -2,20 +2,42 @@ package prime
 
 import "math/big"
 
-var smallPrimes = []uint8{2, 3, 5, 7}
-var smallModulous uint8 //important that 2*3*5*7 is 8 bits!
-var bigSmallModulous *big.Int
-var diffToNextCoprime []*big.Int
+const (
+	primesProduct8  = 0x69               // Π {p ∈ primes, 2 < p <= 7}
+	primesProduct16 = 0x3AA7             // Π {p ∈ primes, 2 < p <= 13}
+	primesProduct32 = 0xC0CFD797         // Π {p ∈ primes, 2 < p <= 29}
+	primesProduct64 = 0xE221F97C30E94E1D // Π {p ∈ primes, 2 < p <= 53}
+)
+
+var (
+	primes8  = []uint8{3, 5, 7}                         //product is 8 bits
+	primes16 = []uint8{3, 5, 7, 11, 13}                 //product is 16 bits
+	primes32 = []uint8{3, 5, 7, 11, 13, 17, 19, 23, 29} //product is 32 bits
+	primes64 = []uint8{3, 5, 7, 11, 13, 17, 19, 23, 29,
+		31, 37, 41, 43, 47, 53} //product is 64 bits
+	primesUnder1000 = []uint16{
+		2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61,
+		67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137,
+		139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211,
+		223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283,
+		293, 307, 311, 313, 317, 331, 337, 347, 349, 353, 359, 367, 373, 379,
+		383, 389, 397, 401, 409, 419, 421, 431, 433, 439, 443, 449, 457, 461,
+		463, 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547, 557, 563,
+		569, 571, 577, 587, 593, 599, 601, 607, 613, 617, 619, 631, 641, 643,
+		647, 653, 659, 661, 673, 677, 683, 691, 701, 709, 719, 727, 733, 739,
+		743, 751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827, 829,
+		839, 853, 857, 859, 863, 877, 881, 883, 887, 907, 911, 919, 929, 937,
+		941, 947, 953, 967, 971, 977, 983, 991, 997}
+	smallPrimes             = []uint8{2, 3, 5, 7}
+	smallModulous     int64 = 210 // = 2*3*5*7
+	bigSmallModulous  *big.Int
+	diffToNextCoprime []*big.Int
+)
 
 //precomputations
 func init() {
-	//set smallModulous to be product of small primes
-	smallModulous = 1
-	for _, p := range smallPrimes {
-		smallModulous = smallModulous * p
-	}
 	//set big version
-	bigSmallModulous = big.NewInt(int64(smallModulous))
+	bigSmallModulous = big.NewInt(smallModulous)
 	//calculate the diff table for coprimes
 	diffToNextCoprime = make([]*big.Int, smallModulous)
 	diffToNextCoprime[0] = new(big.Int).SetInt64(1)
@@ -59,10 +81,53 @@ func NextPrime(n *big.Int) (p *big.Int) {
 	}
 }
 
+// checkSmallPrimes returns true if N is
+// divisible by any prime in a small pre-set
+// list of primes up to 8,16,32, or 64 bits
+func checkSmallPrimes(N *big.Int, bits uint8) bool {
+	// Check N is non-negative
+	if N.Sign() < 0 { // TODO: see if this makes a difference in speed, modding out may be faster with positive?
+		return checkSmallPrimes(new(big.Int).Abs(N), bits)
+	}
+	// Sanity checks
+	if N.BitLen() == 1 {
+		// 0 and 1 are not primes!
+		return false
+	}
+	if N.Bit(0) == 0 {
+		// check if even
+		return false
+	}
+	//TODO try and just mod out by primeProductxx and check divisibility with uint8's
+	// parse input
+	var primes []uint8
+	switch bits {
+	case 8:
+		primes = primes8
+	case 16:
+		primes = primes16
+	case 32:
+		primes = primes32
+	case 64:
+		primes = primes64
+	default:
+		panic("Unknown bits exception!")
+	}
+	for _, p := range primes { // TODO: 64 can be changed for speed?
+		//check all small primes in some range
+		// TODO: make a thing holding big versions of p
+		// or check 0 by looking at first p-many bytes
+		if new(big.Int).Mod(N, big.NewInt(int64(p))).Cmp(big.NewInt(int64(p))) == 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // BPSW runs the Baillie-PSW primality test
 // so returns true if probably a prime, otherwise false
 // for more see http://www.trnicely.net/misc/bpsw.html
-func BPSW(p *big.Int) bool {
+func BPSW(N *big.Int) bool {
 
 	/*
 		BPSW: http://www.trnicely.net/misc/bpsw.html
@@ -74,15 +139,12 @@ func BPSW(p *big.Int) bool {
 	*/
 
 	// Step 1: check  all small primes
-	if p.BitLen() == 1 {
-		return false // 0 and 1 are not primes!
-	}
-	if p.Bit(0) == 0 {
+	if !checkSmallPrimes(N, 16) {
 		return false
 	}
 
 	// Step 2: Miller-Rabin test base 2
-	if !p.ProbablyPrime(20) {
+	if !N.ProbablyPrime(20) {
 		// If it returns true, x is prime with probability 1 - 1/4^n
 		return false
 	}
@@ -94,4 +156,31 @@ func BPSW(p *big.Int) bool {
 	//
 
 	return true
+}
+
+// StrongLucasSelfridgeTest takes an integer N
+// and returns true if N is prime or a strong
+// Lucas-Selfridge pseudoprime and false otherwise
+// see http://www.trnicely.net/misc/bpsw.html
+func StrongLucasSelfridgeTest(N *big.Int) bool {
+	//Step 0: parse input
+	if N.Sign() < 0 {
+		// Check N is positive
+		return StrongLucasSelfridgeTest(new(big.Int).Abs(N))
+	}
+
+	// Step 1: check  all small primes
+	if N.BitLen() == 1 {
+		// 0 and 1 are not primes!
+		return false
+	}
+	for _, p := range primesUnder1000 {
+		if new(big.Int).Mod(N, big.NewInt(int64(p))).Cmp(big.NewInt(int64(p))) == 0 {
+			return false
+		}
+	}
+
+	// Step 2: check if N is a perfect square
+	// TODO
+	return false
 }

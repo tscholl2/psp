@@ -40,8 +40,9 @@ func TestNextPrime(t *testing.T) {
 	check(t, 170003, int(NextPrime(n).Int64()))
 	n = big.NewInt(1700000)
 	check(t, 1700021, int(NextPrime(n).Int64()))
-	n = big.NewInt(632875643785)
-	check(t, 632875643789, int(NextPrime(n).Int64()))
+	n, _ = new(big.Int).SetString("632875643785", 10)
+	p, _ = new(big.Int).SetString("632875643789", 10)
+	checkBigNumbers(t, p, NextPrime(n))
 	// big checks
 	n, _ = new(big.Int).SetString("563478564785638746587634875", 10)
 	p, _ = new(big.Int).SetString("563478564785638746587634881", 10)

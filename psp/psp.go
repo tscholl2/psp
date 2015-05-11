@@ -2,9 +2,9 @@ package psp
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha512"
 	"encoding/base64"
 	"fmt"
 	"math/big"
@@ -14,6 +14,7 @@ import (
 	"github.com/tscholl2/psp/prime"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/armor"
+	"golang.org/x/crypto/openpgp/errors"
 	"golang.org/x/crypto/openpgp/packet" //I need this 'golang.org/x/crypto/openpgp'
 )
 
@@ -60,35 +61,41 @@ func ArmorUp(pubEnt *openpgp.Entity) (asciiEntity string) {
 
 // NewEntity returns a new openpgp entity for the given rsa key
 // mostly to be used with NewRsaKey()
-func NewEntity(name string, comment string, email string, privateKey *rsa.PrivateKey) *openpgp.Entity {
+func NewEntity(name string, comment string, email string, priv *rsa.PrivateKey) (e *openpgp.Entity, err error) {
 	//date := time.Date(2015, time.March, 14, 9, 26, 53, 58, time.UTC) //pi day!
-	date := time.Now()
-	packetPrivate := packet.NewRSAPrivateKey(date, privateKey)
-	packetPublic := packet.NewRSAPublicKey(date, privateKey.Public().(*rsa.PublicKey))
-	userID := packet.NewUserId(name, comment, email)
-	hash := sha512.New()
-	var signature packet.Signature
-	_ = signature.Sign(hash, packetPrivate, nil)
-	var otherSignatures []*packet.Signature
-	identity := openpgp.Identity{
-		Name:          fmt.Sprintf("%s (%s) <%s>", name, comment, email),
-		UserId:        userID,
-		SelfSignature: &signature,
-		Signatures:    otherSignatures}
-	e := openpgp.Entity{
-		PrimaryKey: packetPublic,
-		PrivateKey: packetPrivate,
-		Identities: map[string]*openpgp.Identity{identity.Name: &identity}}
+	currentTime := time.Now()
 
-	// Sign all the identities
-	for _, id := range e.Identities {
-		err := id.SelfSignature.SignUserId(id.UserId.Id, e.PrimaryKey, e.PrivateKey, nil)
-		if err != nil {
-			fmt.Errorf("Error signing keys: %s", err.Error())
-		}
+	uid := packet.NewUserId(name, comment, email)
+	if uid == nil {
+		err = errors.InvalidArgumentError("user id field contained invalid characters")
+		return
 	}
 
-	return &e
+	e = &openpgp.Entity{
+		PrimaryKey: packet.NewRSAPublicKey(currentTime, &priv.PublicKey),
+		PrivateKey: packet.NewRSAPrivateKey(currentTime, priv),
+		Identities: make(map[string]*openpgp.Identity),
+	}
+	isPrimaryID := true
+	e.Identities[uid.Id] = &openpgp.Identity{
+		Name:   uid.Name,
+		UserId: uid,
+		SelfSignature: &packet.Signature{
+			CreationTime: currentTime,
+			SigType:      packet.SigTypePositiveCert,
+			PubKeyAlgo:   packet.PubKeyAlgoRSA,
+			Hash:         crypto.SHA256,
+			IsPrimaryId:  &isPrimaryID,
+			FlagsValid:   true,
+			FlagSign:     true,
+			FlagCertify:  true,
+			IssuerKeyId:  &e.PrimaryKey.KeyId,
+		},
+	}
+	e.Identities[uid.Id].SelfSignature.SignKey(e.PrimaryKey, e.PrivateKey, nil)
+	e.Identities[uid.Id].SelfSignature.SignUserId(uid.Id, e.PrimaryKey, e.PrivateKey, nil)
+	return
+
 }
 
 // NewRsaKey returns a new rsa private key
@@ -170,7 +177,7 @@ func Primes() (p *big.Int, q *big.Int, err error) {
 
 	// insert sass
 	b := N.Bytes()
-	offset := 36 //make sass appear on a line of its own
+	offset := 37 //make sass appear on a line of its own
 	for i := 0; i < len(sass); i++ {
 		b[i+offset] = sass[i]
 	}

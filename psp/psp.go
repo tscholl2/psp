@@ -1,20 +1,62 @@
 package psp
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha512"
 	"encoding/base64"
 	"fmt"
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/tscholl2/psp/prime"
 	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/armor"
 	"golang.org/x/crypto/openpgp/packet" //I need this 'golang.org/x/crypto/openpgp'
 )
 
 var bigOne = big.NewInt(1)
+
+const (
+	// PublicKeyType is the armor type for a PGP public key.
+	PublicKeyType = "SASSY PGP PUBLIC KEY"
+	// PrivateKeyType is the armor type for a PGP private key.
+	PrivateKeyType = "SASSY PGP PRIVATE KEY"
+	// SignatureType is the armor type for a PGP signature.
+	SignatureType = "SASSY PGP SIGNATURE"
+)
+
+func Serialize(e *openpgp.Entity) {
+	w, err := armor.Encode(os.Stdout, PrivateKeyType, nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer w.Close()
+	e.Serialize(w)
+}
+
+//Create ASscii Armor from openpgp.Entity
+func ArmorUp(pubEnt *openpgp.Entity) (asciiEntity string) {
+	gotWriter := bytes.NewBuffer(nil)
+	wr, errEncode := armor.Encode(gotWriter, openpgp.PublicKeyType, nil)
+	if errEncode != nil {
+		fmt.Println("Encoding Armor ", errEncode.Error())
+		return
+	}
+	errSerial := pubEnt.Serialize(wr)
+	if errSerial != nil {
+		fmt.Println("Serializing PubKey ", errSerial.Error())
+	}
+	errClosing := wr.Close()
+	if errClosing != nil {
+		fmt.Println("Closing writer ", errClosing.Error())
+	}
+	asciiEntity = gotWriter.String()
+	return
+}
 
 // NewEntity returns a new openpgp entity for the given rsa key
 // mostly to be used with NewRsaKey()
@@ -37,11 +79,21 @@ func NewEntity(name string, comment string, email string, privateKey *rsa.Privat
 		PrimaryKey: packetPublic,
 		PrivateKey: packetPrivate,
 		Identities: map[string]*openpgp.Identity{identity.Name: &identity}}
+
+	// Sign all the identities
+	for _, id := range e.Identities {
+		err := id.SelfSignature.SignUserId(id.UserId.Id, e.PrimaryKey, e.PrivateKey, nil)
+		if err != nil {
+			fmt.Errorf("Error signing keys: %s", err.Error())
+		}
+	}
+
 	return &e
 }
 
 // NewRsaKey returns a new rsa private key
-// with sassy primes
+// using the primes generated from Primes()
+// it is pretty much a copy of crypto/rsa.GenerateKey()
 func NewRsaKey() (priv *rsa.PrivateKey, err error) {
 	//initialize values
 	var p, q, d, n *big.Int
@@ -92,9 +144,8 @@ SearchForPrimes:
 	return
 }
 
-// Primes returns p,q so that the
-// base64 encoding of N=p*q contains a
-// sassy string
+// Primes returns p,q so that the base64
+// encoding of N=p*q contains a sassy string
 func Primes() (p *big.Int, q *big.Int, err error) {
 	// decode sass to bytes
 	// important to be 64 characters long

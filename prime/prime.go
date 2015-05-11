@@ -48,8 +48,8 @@ func gcd(u int, v int) int {
 func NextPrime(n *big.Int) (p *big.Int) {
 	var bigMod = new(big.Int)
 	var diff *big.Int
-	p = n //change to a copy //OPIMTIMZE
-	for i := 0; i < 1000; i++ {
+	p = new(big.Int).Set(n)
+	for {
 		if BPSW(p) {
 			return
 		}
@@ -57,7 +57,6 @@ func NextPrime(n *big.Int) (p *big.Int) {
 		diff = diffToNextCoprime[int(bigMod.Int64())]
 		p.Add(p, diff)
 	}
-	panic("unable to find enext prime!")
 }
 
 // BPSW runs the Baillie-PSW primality test

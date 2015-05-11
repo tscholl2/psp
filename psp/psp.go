@@ -15,7 +15,7 @@ import (
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/armor"
 	"golang.org/x/crypto/openpgp/errors"
-	"golang.org/x/crypto/openpgp/packet" //I need this 'golang.org/x/crypto/openpgp'
+	"golang.org/x/crypto/openpgp/packet"
 )
 
 var bigOne = big.NewInt(1)
@@ -29,14 +29,16 @@ const (
 	SignatureType = "SASSY PGP SIGNATURE"
 )
 
-func Serialize(e *openpgp.Entity) {
-	w, err := armor.Encode(os.Stdout, PrivateKeyType, nil)
+func Serialize(e *openpgp.Entity) string {
+	var buffer bytes.Buffer
+	w, err := armor.Encode(&buffer, PrivateKeyType, nil)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	defer w.Close()
 	e.Serialize(w)
+	return string(buffer)
 }
 
 //Create ASscii Armor from openpgp.Entity

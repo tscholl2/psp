@@ -2,6 +2,6 @@ package psp
 
 import "testing"
 
-func TestPrimes(t *testing.T) {
-
+func TestSerialize(t *testing.T) {
+	// TODO write test functions with static primes/date	
 }

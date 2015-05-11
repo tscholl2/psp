@@ -60,7 +60,7 @@ func NextPrime(n *big.Int) (p *big.Int) {
 }
 
 // BPSW runs the Baillie-PSW primality test
-// so returns true if probably a prime
+// so returns true if probably a prime, otherwise false
 // for more see http://www.trnicely.net/misc/bpsw.html
 func BPSW(p *big.Int) bool {
 

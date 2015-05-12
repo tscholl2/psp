@@ -1,6 +1,10 @@
 package prime
 
-import "math/big"
+import (
+	"crypto/rand"
+	"math"
+	"math/big"
+)
 
 const (
 	primesProduct8  = 0x69               // Π {p ∈ primes, 2 < p <= 7}
@@ -32,6 +36,7 @@ var (
 	smallModulous     int64 = 210 // = 2*3*5*7
 	bigSmallModulous  *big.Int
 	diffToNextCoprime []*big.Int
+	bigZero           = big.NewInt(0)
 )
 
 //precomputations
@@ -117,7 +122,7 @@ func checkSmallPrimes(N *big.Int, bits uint8) bool {
 		//check all small primes in some range
 		// TODO: make a thing holding big versions of p
 		// or check 0 by looking at first p-many bytes
-		if new(big.Int).Mod(N, big.NewInt(int64(p))).Cmp(big.NewInt(int64(p))) == 0 {
+		if new(big.Int).Mod(N, big.NewInt(int64(p))).Cmp(bigZero) == 0 {
 			return false
 		}
 	}
@@ -139,8 +144,12 @@ func BPSW(N *big.Int) bool {
 	*/
 
 	// Step 1: check  all small primes
-	if !checkSmallPrimes(N, 16) {
-		return false
+	for _, p := range primesUnder1000 {
+		//check all small primes in some range
+		// TODO make a thing holding big versions of p?
+		if new(big.Int).Mod(N, big.NewInt(int64(p))).Cmp(bigZero) == 0 {
+			return false
+		}
 	}
 
 	// Step 2: Miller-Rabin test base 2
@@ -182,5 +191,53 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 
 	// Step 2: check if N is a perfect square
 	// TODO
+	return false
+}
+
+// IsSquare returns true if N is a perfect
+// square, that is N = m^2 for some positive
+// integer m. Basically applies newtons method
+func IsSquare(N *big.Int) bool {
+	// Step -1: check inputs
+	if N.Sign() <= 0 {
+		// 0 is a square
+		if N.Sign() == 0 {
+			return true
+		}
+		// negative numbers are not
+		return false
+	}
+	// Step 0: Easy case
+	if N.BitLen() < 64 {
+		n := N.Int64()
+		a := int64(math.Sqrt(float64(n)))
+		if a*a == n {
+			return true
+		}
+		return false
+	}
+
+	// Step 1: make a random guess for sqrt
+	// with the right order of magnitude
+	bigTwo := big.NewInt(2)
+	bytes := make([]byte, N.BitLen()/16)
+	rand.Read(bytes)
+	x := new(big.Int).SetBytes(bytes)
+	y := new(big.Int)
+
+	// Step 2: run newtons method until it
+	// stabilized (same value or one off), see wiki article
+	// http://en.wikipedia.org/wiki/Integer_square_root
+	// convergence is quadratic so shouldn't take long
+	// if it doesn't converge it should alternate between +-1
+	// so return false in that case
+	for i := 0; i < N.BitLen()/2+5; i++ {
+		y.Div(y.Add(x, y.Div(N, x)), bigTwo) // Set y = [(x + [N/x])/2]
+		if x.Cmp(y) == 0 {
+			return true
+		}
+		x.Set(y)
+	}
+
 	return false
 }

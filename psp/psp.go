@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/big"
-	"os"
 	"time"
 
 	"github.com/tscholl2/psp/prime"
@@ -34,11 +33,11 @@ func Serialize(e *openpgp.Entity) string {
 	w, err := armor.Encode(&buffer, PrivateKeyType, nil)
 	if err != nil {
 		fmt.Println(err)
-		return
+		return ""
 	}
 	defer w.Close()
 	e.Serialize(w)
-	return string(buffer)
+	return buffer.String()
 }
 
 //Create ASscii Armor from openpgp.Entity

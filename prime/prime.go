@@ -215,6 +215,43 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 	// Step 3: find the first element D in the
 	// sequence {5, -7, 9, -11, 13, ...} such that
 	// Jacobi(D,N) = -1 (Selfridge's algorithm).
+	D := big.NewInt(5)
+	for JacobiSymbol(N, D) != -1 {
+		d := new(big.Int).Add(new(big.Int).Abs(D), bigTwo)
+		if D.Sign() > 0 {
+			d.Neg(d)
+		}
+		D.Set(d)
+	}
+	// Set some variables
+	P := big.NewInt(1)
+	Q := new(big.Int).Div(new(big.Int).Sub(bigOne, D), big.NewInt(4))
+	//check for some common factors
+	if new(big.Int).GCD(nil, nil, N, P).Cmp(bigOne) != 0 || new(big.Int).GCD(nil, nil, N, Q).Cmp(bigOne) != 0 {
+		return false
+	}
+
+	// Step 4: Find d so N+1 = 2^s*d
+	/*
+			Now calculate N - Jacobi(D,N) = N + 1 (even), and calculate the
+		  odd positive integer d and positive integer s for which
+		  N + 1 = 2^s*d
+	*/
+	d := new(big.Int).Add(N, bigOne)
+	for d.Bit(0) == 0 {
+		d.Div(d, bigTwo) // TODO left shift?
+	}
+
+	// Step 5: Calculate the V's
+	/*
+		The strong Lucas-Selfridge test then returns N as a strong
+		Lucas probable prime (slprp) if any of the following
+		conditions is met: U_d=0, V_d=0, V_2d=0, V_4d=0, V_8d=0,
+		V_16d=0, ..., etc., ending with V_{2^(s-1)*d}=V_{(N+1)/2}=0
+		(all equalities mod N).
+	*/
+
+	// TODO
 
 	return false
 }

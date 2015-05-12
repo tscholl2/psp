@@ -37,6 +37,8 @@ var (
 	bigSmallModulous  *big.Int
 	diffToNextCoprime []*big.Int
 	bigZero           = big.NewInt(0)
+	bigOne            = big.NewInt(1)
+	bigTwo            = big.NewInt(2)
 )
 
 //precomputations
@@ -73,15 +75,15 @@ func gcd(u int, v int) int {
 // and high probability that p is the next prime
 // occuring after n
 func NextPrime(n *big.Int) (p *big.Int) {
-	var bigMod = new(big.Int)
+	var mod = new(big.Int)
 	var diff *big.Int
 	p = new(big.Int).Set(n)
 	for {
 		if BPSW(p) {
 			return
 		}
-		bigMod.Mod(p, bigSmallModulous)
-		diff = diffToNextCoprime[int(bigMod.Int64())]
+		mod.Mod(p, bigSmallModulous)
+		diff = diffToNextCoprime[int(mod.Int64())]
 		p.Add(p, diff)
 	}
 }
@@ -143,9 +145,21 @@ func BPSW(N *big.Int) bool {
 		    sequences with the parameters suggested by Selfridge.
 	*/
 
+	// Step 0: small case
+	if N.BitLen() < 9 {
+		n := uint16(N.Int64())
+		for _, p := range primesUnder1000 {
+			if n == p {
+				return true
+			}
+		}
+		return false
+	}
+
 	// Step 1: check  all small primes
 	for _, p := range primesUnder1000 {
 		//check all small primes in some range
+		//note N is big so it wont be = to any p
 		// TODO make a thing holding big versions of p?
 		if new(big.Int).Mod(N, big.NewInt(int64(p))).Cmp(bigZero) == 0 {
 			return false
@@ -173,7 +187,11 @@ func BPSW(N *big.Int) bool {
 // see http://www.trnicely.net/misc/bpsw.html
 func StrongLucasSelfridgeTest(N *big.Int) bool {
 	//Step 0: parse input
-	if N.Sign() < 0 {
+	if N.Sign() <= 0 {
+		if N.Sign() == 0 {
+			// zero is not prime
+			return false
+		}
 		// Check N is positive
 		return StrongLucasSelfridgeTest(new(big.Int).Abs(N))
 	}
@@ -184,14 +202,87 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 		return false
 	}
 	for _, p := range primesUnder1000 {
-		if new(big.Int).Mod(N, big.NewInt(int64(p))).Cmp(big.NewInt(int64(p))) == 0 {
+		if new(big.Int).Mod(N, big.NewInt(int64(p))).Cmp(bigZero) == 0 {
 			return false
 		}
 	}
 
 	// Step 2: check if N is a perfect square
-	// TODO
+	if IsSquare(N) {
+		return false
+	}
+
+	// Step 3: find the first element D in the
+	// sequence {5, -7, 9, -11, 13, ...} such that
+	// Jacobi(D,N) = -1 (Selfridge's algorithm).
+
 	return false
+}
+
+// JacobiSymbol returns the jacobi symbol of
+// N over D, see http://en.wikipedia.org/wiki/Jacobi_symbol
+func JacobiSymbol(N *big.Int, D *big.Int) int {
+	//easy cases
+	if D.Cmp(bigZero) == 0 {
+		panic("JacobiSymbol over 0 Error!")
+	}
+	if D.Cmp(bigOne) == 0 || N.Cmp(bigOne) == 0 {
+		return 1
+	}
+	if new(big.Int).GCD(nil, nil, N, D).Cmp(bigOne) != 0 {
+		return 0
+	}
+
+	//rest of the stuff
+	j := 1
+	n := new(big.Int).Set(N)
+	d := new(big.Int).Set(D)
+Step1:
+	for {
+		// Step 1: Reduce the numerator mod the denominator
+		n = new(big.Int).Mod(n, d)
+
+		//fmt.Printf("step 1, \nn = %d\nd = %d\nj = %d\n", n, d, j)
+
+		// Step 2: extract factors of 2
+		var symMod2 int
+		switch int(new(big.Int).Mod(d, big.NewInt(8)).Int64()) { // TODO: mod 8 is taking first byte?
+		case 1, 7:
+			symMod2 = 1
+		case 3, 5:
+			symMod2 = -1
+		}
+		for n.Bit(0) == 0 {
+			n.Div(n, bigTwo) // TODO %2 is bit shift?
+			j = j * symMod2
+		}
+
+		//fmt.Printf("step 2, \nn = %d\nd = %d\nj = %d\n", n, d, j)
+
+		// Step 3: check numerator and gcd
+		if n.Cmp(bigOne) == 0 {
+			return j
+		}
+		if new(big.Int).GCD(nil, nil, n, d).Cmp(bigOne) != 0 {
+			return 0
+		}
+
+		//fmt.Printf("step 3, \nn = %d\nd = %d\nj = %d\n", n, d, j)
+
+		// Step 4: flip and go back to step 1
+		if int(new(big.Int).Mod(n, big.NewInt(4)).Int64()) != 1 { // n = 3 mod 4
+			if int(new(big.Int).Mod(d, big.NewInt(4)).Int64()) != 1 { // d = 3 mod 4
+				j = -1 * j
+			}
+		}
+		tmp := new(big.Int).Set(n)
+		n.Set(d)
+		d.Set(tmp)
+
+		//fmt.Printf("step 4, \nn = %d\nd = %d\nj = %d\n", n, d, j)
+
+		continue Step1
+	}
 }
 
 // IsSquare returns true if N is a perfect
@@ -232,7 +323,7 @@ func IsSquare(N *big.Int) bool {
 	// if it doesn't converge it should alternate between +-1
 	// so return false in that case
 	for i := 0; i < N.BitLen()/2+5; i++ {
-		y.Div(y.Add(x, y.Div(N, x)), bigTwo) // Set y = [(x + [N/x])/2]
+		y.Div(y.Add(x, y.Div(N, x)), bigTwo) // Set y = [(x + [N/x])/2] // TODO: division by 2 is bit shift?
 		if x.Cmp(y) == 0 {
 			return true
 		}

@@ -53,6 +53,25 @@ func TestNextPrime(t *testing.T) {
 	}
 }
 
+func TestJacobiSymbol(t *testing.T) {
+	cases := []struct {
+		N, D *big.Int
+		want int
+	}{
+		{big.NewInt(15), big.NewInt(45), 0},
+		{big.NewInt(19), big.NewInt(45), 1},
+		{big.NewInt(8), big.NewInt(21), -1},
+		{big.NewInt(5), big.NewInt(21), 1},
+		{big.NewInt(1001), big.NewInt(9907), -1},
+	}
+	for _, c := range cases {
+		got := JacobiSymbol(c.N, c.D)
+		if got != c.want {
+			t.Errorf("Case: ( %d / %d )\nExpected: %x\nGot: %x", c.N, c.D, c.want, got)
+		}
+	}
+}
+
 // Benchmarks
 
 func randBig(bits int) *big.Int {

@@ -2,6 +2,7 @@ package prime
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math"
 	"math/big"
 )
@@ -356,6 +357,73 @@ Step1:
 
 		continue Step1
 	}
+}
+
+// Jacobi returns the Jacobi symbol (x/y), either +1, -1, or 0.
+// The y argument must be an odd integer.
+// Stole from commit
+// https://github.com/golang/go/blob/ac6158828870abcbf7d9ef86c89569a2a7d7020c/src/math/big/int.go
+func Jacobi(x, y *big.Int) int {
+	if len(y.Bits()) == 0 || y.Bits()[0]&1 == 0 {
+		panic(fmt.Sprintf("big: invalid 2nd argument to Int.Jacobi: need odd integer but got %x", y))
+	}
+
+	// We use the formulation described in chapter 2, section 2.4,
+	// "The Yacas Book of Algorithms":
+	// http://yacas.sourceforge.net/Algo.book.pdf
+
+	var a, b, c *big.Int
+	a.Set(x)
+	b.Set(y)
+	j := 1
+
+	if b.Sign() < 0 {
+		if a.Sign() < 0 {
+			j = -1
+		}
+		b.Abs(b)
+	}
+
+	for {
+		if len(b.Bits()) == 1 && b.Bit(0) == 1 {
+			return j
+		}
+		if len(a.Bits()) == 0 {
+			return 0
+		}
+		a.Mod(a, b)
+		if len(a.Bits()) == 0 {
+			return 0
+		}
+		// a > 0
+
+		// handle factors of 2 in 'a'
+		s := a.Bits().trailingZeroBits()
+		if s&1 != 0 {
+			bmod8 := b.Bits()[0] & 7
+			if bmod8 == 3 || bmod8 == 5 {
+				j = -j
+			}
+		}
+		c.Rsh(a, s) // a = 2^s*c
+
+		// swap numerator and denominator
+		if b.Bits()[0]&3 == 3 && c.Bits()[0]&3 == 3 {
+			j = -j
+		}
+		a.Set(b)
+		b.Set(c)
+	}
+}
+
+func trailingZeroBits(x *big.Int) (i uint) { //TODO fix, use lookup table for words
+	if x.Sign() < 0 {
+		panic("unknown bits of negative")
+	}
+	for i > uint(x.BitLen()) && x.Bit(int(i)) != 1 {
+		i++
+	}
+	return
 }
 
 // IsSquare returns true if N is a perfect

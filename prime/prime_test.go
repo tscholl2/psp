@@ -50,6 +50,8 @@ func TestIsSquare(t *testing.T) {
 }
 
 func TestStrongLucasSelfridgeTest(t *testing.T) {
+	n, _ := new(big.Int).SetString("319889369713946602502766595032347", 10)
+	//http://www.sciencedirect.com/science/article/pii/S0747717185710425
 	cases := []struct {
 		in   *big.Int
 		want bool
@@ -64,6 +66,7 @@ func TestStrongLucasSelfridgeTest(t *testing.T) {
 		{big.NewInt(3571 * 3571), false}, // perfect square
 		{big.NewInt(3571), true},         // large prime
 		{big.NewInt(5459), true},         // NOT prime! a strong Lucas psuedoprime
+		{n, true},                        //also a strong lsps!, BPSW says composite though
 	}
 	for _, c := range cases {
 		got := StrongLucasSelfridgeTest(c.in)
@@ -184,7 +187,15 @@ func BenchmarkIsSquare(b *testing.B) {
 func BenchmarkBPSW(b *testing.B) {
 	var r bool
 	for i := 0; i < b.N; i++ {
-		BPSW(benchmarkPrime)
+		r = BPSW(benchmarkPrime)
+	}
+	boolResult = r
+}
+
+func BenchmarkPP(b *testing.B) {
+	var r bool
+	for i := 0; i < b.N; i++ {
+		r = benchmarkPrime.ProbablyPrime(10)
 	}
 	boolResult = r
 }

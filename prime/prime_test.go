@@ -9,6 +9,16 @@ import (
 // Tests
 
 func TestIsSquare(t *testing.T) {
+	n1true, _ := new(big.Int).SetString("240e16068a04dea390a1f96b3f05a1", 16)
+	n1false, _ := new(big.Int).SetString("240e16068a04dea390a1f96b3f05a2", 16)
+	n2true, _ := new(big.Int).SetString("fa8bf08953f8b2c1f941de3fd45b952967a055ff7826e4a436b660db443b024eaeed6fdf0640", 16)
+	n2false, _ := new(big.Int).SetString("fa8bf08953f8b2c1f941de3fd45b952967a055ff7826e4a436b660db443b024eaeed6fdf0641", 16)
+	n3false, _ := new(big.Int).SetString("1e04ded686bffea61355f4c9c76f1e66fba27b9fa8b00f3c5884d3eff369677ad5817d783aa58db408de1310e55cd5e72a8176340", 16)
+	n3true, _ := new(big.Int).SetString("1e04ded686bffea61355f4c9c76f1e66fba27b9fa8b00f3c5884d3eff369677ad5817d783aa58db408de1310e55cd5e72a8176341", 16)
+	n3false2, _ := new(big.Int).SetString("1e04ded686bffea61355f4c9c76f1e66fba27b9fa8b00f3c5884d3eff369677ad5817d783aa58db408de1310e55cd5e72a8176342", 16)
+	n4true, _ := new(big.Int).SetString("7afee5555433fa458dc6e8e62f1cc4533b3488893e4067830385d9b27fbf724f0ca5e4e94a1c46afb09138c1965d8aa8938bebd89ae3b4f13aecd85839f3b5db1c7b9692bc0ef2595cf8640", 16)
+	n4false, _ := new(big.Int).SetString("7afee5555433fa458dc6e8e62f1cc4533b3488893e4067830385d9b27fbf724f0ca5e4e94a1c46afb09138c1965d8aa8938bebd89ae3b4f13aecd85839f3b5db1c7b9692bc0ef2595cf8641", 16)
+
 	cases := []struct {
 		in   *big.Int
 		want bool
@@ -18,14 +28,73 @@ func TestIsSquare(t *testing.T) {
 		{big.NewInt(1), true},
 		{big.NewInt(15), false},
 		{big.NewInt(16), true},
+		{big.NewInt(3571), false},
 		{big.NewInt(13627856 * 13627856), true},
 		{big.NewInt(13627856), false},
-		{new(big.Int).SetBytes([]byte{0x54, 0xD0, 0xDC, 0x48, 0xD2, 0x1A, 0x26, 0x83, 0x5F, 0x51}), true},
+		{n1true, true},
+		{n2true, true},
+		{n3true, true},
+		{n4true, true},
+		{n1false, false},
+		{n2false, false},
+		{n3false, false},
+		{n3false2, false},
+		{n4false, false},
 	}
 	for _, c := range cases {
 		got := IsSquare(c.in)
 		if got != c.want {
 			t.Errorf("Case: %x\nExpected: %t\nGot: %t", c.in, c.want, got)
+		}
+	}
+}
+
+func TestStrongLucasSelfridgeTest(t *testing.T) {
+	cases := []struct {
+		in   *big.Int
+		want bool
+	}{
+
+		{big.NewInt(2 * 3 * 5 * 11 * 13 * 17), false}, // smooth number
+		{big.NewInt(3), true},                         // some small primes
+		{big.NewInt(5), true},
+		{big.NewInt(11), true},
+		{big.NewInt(797), true},
+		{big.NewInt(3572), false},        // even number
+		{big.NewInt(3571 * 3571), false}, // perfect square
+		{big.NewInt(3571), true},         // large prime
+		{big.NewInt(5459), true},         // NOT prime! a strong Lucas psuedoprime
+	}
+	for _, c := range cases {
+		got := StrongLucasSelfridgeTest(c.in)
+		if got != c.want {
+			t.Errorf("Case: %d\nExpected: %t\nGot: %t", c.in, c.want, got)
+		}
+	}
+}
+
+func TestMillerRabin(t *testing.T) {
+	cases := []struct {
+		inN  *big.Int
+		inA  int64
+		want bool
+	}{
+		{big.NewInt(221), 174, true},
+		{big.NewInt(221), 137, false},
+		{big.NewInt(7), 2, true},
+		{big.NewInt(11), 2, true},
+		{big.NewInt(13), 2, true},
+		{big.NewInt(1709), 2, true},
+		{big.NewInt(2005), 2, false},
+		{big.NewInt(2047), 2, true}, // NOT prime!
+		{big.NewInt(173), 6, true},
+		{big.NewInt(174), 6, false}, // not relatively prime
+		{big.NewInt(217), 6, true},  // NOT prime!
+	}
+	for _, c := range cases {
+		got := MillerRabin(c.inN, c.inA)
+		if got != c.want {
+			t.Errorf("Case: ( %d , %d )\nExpected: %t\nGot: %t", c.inN, c.inA, c.want, got)
 		}
 	}
 }
@@ -63,6 +132,12 @@ func TestJacobiSymbol(t *testing.T) {
 		{big.NewInt(8), big.NewInt(21), -1},
 		{big.NewInt(5), big.NewInt(21), 1},
 		{big.NewInt(1001), big.NewInt(9907), -1},
+		{big.NewInt(-7), big.NewInt(5459), -1},
+		{big.NewInt(7), big.NewInt(5459), 1},
+		{big.NewInt(4), big.NewInt(5458), 0},
+		{big.NewInt(1), big.NewInt(5458), 1},
+		{big.NewInt(632785), big.NewInt(1902574), 1},
+		{big.NewInt(632786), big.NewInt(1902574), 0},
 	}
 	for _, c := range cases {
 		got := JacobiSymbol(c.N, c.D)
@@ -84,20 +159,32 @@ var benchmarkNumber, _ = new(big.Int).SetString("3ba9a88eb20cfdfe4a380607f5025cd
 var benchmarkSquare, _ = new(big.Int).SetString("79045c904c4628af5f2d21f726b8bebc1c61f0fceb4f2292bc70ce61adf1646ffcbfdd003703b5da7dc1c39bccf5f71a4c6ad61b6812d70b587aeaf4c03ecd612ba0ad6ac17f7b572e72ba3bc46fbe75d8fc914c76fdead83ef26d62da422e2dd67e098ab7505ebe134feafd8fc9e59662a627a48329864454624f387f7e3e84", 16)
 var benchmarkPrime, _ = new(big.Int).SetString("3ba9a88eb20cfdfe4a380607f5025cdcd0f0bbb73b6f8d45bb0d7bdcd7d485b513d4f8c3d0d572f47ea6f32b4d19978c1a578f919c126e997548b8d0acc64284287a3a321e292e1be9614bf21254011a25df84b77b7411d41e65fd50298fc4660651580b5bd3f38377e2a6260021694cb4096873762f45ba41562ed1cddaca67", 16)
 
+// keep compiler from optimizing tests
+var bigResult *big.Int
+var boolResult bool
+
+// TODO benchmark JacobiSymbol and MillerRabin and StrongLucasSelfridgeTest
+
 func BenchmarkNextPrime(b *testing.B) {
+	var r *big.Int
 	for i := 0; i < b.N; i++ {
-		NextPrime(benchmarkNumber)
+		r = NextPrime(benchmarkNumber)
 	}
+	bigResult = r
 }
 
 func BenchmarkIsSquare(b *testing.B) {
+	var r bool
 	for i := 0; i < b.N; i++ {
-		IsSquare(benchmarkSquare)
+		r = IsSquare(benchmarkSquare)
 	}
+	boolResult = r
 }
 
 func BenchmarkBPSW(b *testing.B) {
+	var r bool
 	for i := 0; i < b.N; i++ {
 		BPSW(benchmarkPrime)
 	}
+	boolResult = r
 }

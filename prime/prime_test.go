@@ -159,14 +159,17 @@ func randBig(bits int) *big.Int {
 }
 
 var benchmarkNumber, _ = new(big.Int).SetString("3ba9a88eb20cfdfe4a380607f5025cdcd0f0bbb73b6f8d45bb0d7bdcd7d485b513d4f8c3d0d572f47ea6f32b4d19978c1a578f919c126e997548b8d0acc64284287a3a321e292e1be9614bf21254011a25df84b77b7411d41e65fd50298fc4660651580b5bd3f38377e2a6260021694cb4096873762f45ba41562ed1cddac60f", 16)
+var benchmarkOdd, _ = new(big.Int).SetString("3ba9a88eb20cfdfe4a380607f5025cdcd0f0bbb73b6f8d45bb0d7bdcd7d485b513d4f8c3d0d572f47ea6f32b4d19978c1a578f919c126e997548b8d0acc64284287a3a321e292e1be9614bf21254011a25df84b77b7411d41e65fd50298fc4660651580b5bd3f38377e2a6260021694cb4096873762f45ba41562ed1cddaca69", 16)
+var benchmarkEven, _ = new(big.Int).SetString("3ba9a88eb20cfdfe4a380607f5025cdcd0f0bbb73b6f8d45bb0d7bdcd7d485b513d4f8c3d0d572f47ea6f32b4d19978c1a578f919c126e997548b8d0acc64284287a3a321e292e1be9614bf21254011a25df84b77b7411d41e65fd50298fc4660651580b5bd3f38377e2a6260021694cb4096873762f45ba41562ed1cddaca67", 16)
 var benchmarkSquare, _ = new(big.Int).SetString("79045c904c4628af5f2d21f726b8bebc1c61f0fceb4f2292bc70ce61adf1646ffcbfdd003703b5da7dc1c39bccf5f71a4c6ad61b6812d70b587aeaf4c03ecd612ba0ad6ac17f7b572e72ba3bc46fbe75d8fc914c76fdead83ef26d62da422e2dd67e098ab7505ebe134feafd8fc9e59662a627a48329864454624f387f7e3e84", 16)
 var benchmarkPrime, _ = new(big.Int).SetString("3ba9a88eb20cfdfe4a380607f5025cdcd0f0bbb73b6f8d45bb0d7bdcd7d485b513d4f8c3d0d572f47ea6f32b4d19978c1a578f919c126e997548b8d0acc64284287a3a321e292e1be9614bf21254011a25df84b77b7411d41e65fd50298fc4660651580b5bd3f38377e2a6260021694cb4096873762f45ba41562ed1cddaca67", 16)
 
 // keep compiler from optimizing tests
 var bigResult *big.Int
 var boolResult bool
+var intResult int
 
-// TODO benchmark JacobiSymbol and MillerRabin and StrongLucasSelfridgeTest
+// TODO benchmark MillerRabin and StrongLucasSelfridgeTest
 
 func BenchmarkNextPrime(b *testing.B) {
 	var r *big.Int
@@ -190,6 +193,14 @@ func BenchmarkBPSW(b *testing.B) {
 		r = BPSW(benchmarkPrime)
 	}
 	boolResult = r
+}
+
+func BenchmarkJacobiSymbol(b *testing.B) {
+	var r int
+	for i := 0; i < b.N; i++ {
+		r = JacobiSymbol(benchmarkPrime, benchmarkOdd)
+	}
+	intResult = r
 }
 
 func BenchmarkPP(b *testing.B) {

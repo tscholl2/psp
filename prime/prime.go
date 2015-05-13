@@ -225,7 +225,7 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 	d := new(big.Int).Add(N, bigOne)
 	var s uint64 //this is the exponent of 2, so if overflows than you have more memory than the starship Enterprise
 	for d.Bit(0) == 0 {
-		d.Rsh(d, 1) // TODO right shift all at once?
+		d.Rsh(d, 1) // TODO right shift all at once --> MUCH faster
 		s++
 	}
 
@@ -325,8 +325,8 @@ Step1:
 		case 3, 5:
 			symMod2 = -1
 		}
-		for n.Bit(0) == 0 {
-			n.Div(n, bigTwo) // TODO %2 is bit shift?
+		for n.Bit(0) == 0 { //TODO count bits to shift and do all at once
+			n.Rsh(n, 1)
 			j = j * symMod2
 		}
 

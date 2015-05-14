@@ -407,18 +407,19 @@ func IsSquare(N *big.Int) bool {
 	rand.Read(bytes)
 	var x,y,delta big.Int
 	x.SetBytes(bytes)
+	y.Set(&x)
 
 	// Step 2: run newtons method until it
 	// stabilized (same value or one off), see wiki article
 	// http://en.wikipedia.org/wiki/Integer_square_root
 	// if it doesn't converge it should alternate between +-1
 	// so return false in that case
-	for i := 0; i < d; i++ {
+	// convergence is fast, should take log(number of digits)
+	// add 10 for safety in numbers
+	for i := 0; i < int(math.Log(float64(d))) + 10; i++ {
 		// Set y = [(x + [N/x])/2]
-		y.Rsh(new(big.Int).Add(&x, new(big.Int).Div(N, &x)), 1)
-		if i > int(math.Log(float64(d))) + 2 {
-			// convergence is fast, should take log(number of digits)
-			// add 2 for good luck
+		y.Rsh(y.Add(&y,x.Div(N,&x)),1) // note: at this point y = x
+		if i > int(math.Log(float64(d))) {
 			delta.Sub(&x,&y)
 			if len(delta.Bits()) == 0 || (len(delta.Bits()) == 1 && delta.Bits()[0] == 1) {
 				// if |x - y| <= 1

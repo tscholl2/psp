@@ -2,25 +2,14 @@ package prime
 
 import (
 	"crypto/rand"
-	"fmt"
 	"math"
 	"math/big"
 )
 
-const (
-	primesProduct8  = 0x69               // Π {p ∈ primes, 2 < p <= 7}
-	primesProduct16 = 0x3AA7             // Π {p ∈ primes, 2 < p <= 13}
-	primesProduct32 = 0xC0CFD797         // Π {p ∈ primes, 2 < p <= 29}
-	primesProduct64 = 0xE221F97C30E94E1D // Π {p ∈ primes, 2 < p <= 53}
-)
-
 var (
-	primes8  = []uint8{3, 5, 7}                         //product is 8 bits
-	primes16 = []uint8{3, 5, 7, 11, 13}                 //product is 16 bits
-	primes32 = []uint8{3, 5, 7, 11, 13, 17, 19, 23, 29} //product is 32 bits
-	primes64 = []uint8{3, 5, 7, 11, 13, 17, 19, 23, 29,
-		31, 37, 41, 43, 47, 53} //product is 64 bits
-	primesUnder1000 = []uint16{
+	// all primes < 10 bits and their product
+	prodPrimes10, _ = new(big.Int).SetString("613a0497aa700632594668d2175f6874157ab081f7d649a3e936c6608f20575cb03949974ef1fb62db814d5fdf2c0d0e2d0abb2b26e8cc08403e32336e4bf96f1ffa1b71d1f4c342dc3812e17d7035b9e93905bff2c1a6de", 16)
+	primes10        = []uint16{
 		2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61,
 		67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137,
 		139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211,
@@ -32,59 +21,45 @@ var (
 		647, 653, 659, 661, 673, 677, 683, 691, 701, 709, 719, 727, 733, 739,
 		743, 751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827, 829,
 		839, 853, 857, 859, 863, 877, 881, 883, 887, 907, 911, 919, 929, 937,
-		941, 947, 953, 967, 971, 977, 983, 991, 997}
-	smallPrimes             = []uint8{2, 3, 5, 7}
-	smallModulous     int64 = 210 // = 2*3*5*7
-	bigSmallModulous  *big.Int
-	diffToNextCoprime []*big.Int
-	bigOne            = big.NewInt(1)
-	bigTwo            = big.NewInt(2)
+		941, 947, 953, 967, 971, 977, 983, 991, 997, 1009, 1013, 1019, 1021}
+	// diffs to next relatively prime number mod 210 = 2*3*5*7
+	diffs = []uint8{
+		11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 2, 1, 4, 3, 2, 1, 2, 1, 4, 3, 2, 1, 6,
+		5, 4, 3, 2, 1, 2, 1, 6, 5, 4, 3, 2, 1, 4, 3, 2, 1, 2, 1, 4, 3, 2, 1, 6, 5,
+		4, 3, 2, 1, 6, 5, 4, 3, 2, 1, 2, 1, 6, 5, 4, 3, 2, 1, 4, 3, 2, 1, 2, 1, 6,
+		5, 4, 3, 2, 1, 4, 3, 2, 1, 6, 5, 4, 3, 2, 1, 8, 7, 6, 5, 4, 3, 2, 1, 4, 3,
+		2, 1, 2, 1, 4, 3, 2, 1, 2, 1, 4, 3, 2, 1, 8, 7, 6, 5, 4, 3, 2, 1, 6, 5, 4,
+		3, 2, 1, 4, 3, 2, 1, 6, 5, 4, 3, 2, 1, 2, 1, 4, 3, 2, 1, 6, 5, 4, 3, 2, 1,
+		2, 1, 6, 5, 4, 3, 2, 1, 6, 5, 4, 3, 2, 1, 4, 3, 2, 1, 2, 1, 4, 3, 2, 1, 6,
+		5, 4, 3, 2, 1, 2, 1, 6, 5, 4, 3, 2, 1, 4, 3, 2, 1, 2, 1, 4, 3, 2, 1, 2, 1,
+		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 2}
+	diffsInt []*big.Int
+	one      = big.NewInt(1)
+	two      = big.NewInt(2)
 )
 
-//precomputations
+// precomputations
 func init() {
-	//set big version
-	bigSmallModulous = big.NewInt(smallModulous)
-	//calculate the diff table for coprimes
-	diffToNextCoprime = make([]*big.Int, smallModulous)
-	diffToNextCoprime[0] = new(big.Int).SetInt64(1)
-	var d int
-	for i := 1; i < int(smallModulous); i++ {
-		if gcd(i, int(smallModulous)) == 1 {
-			d = 1
-		} else {
-			d = 0
-		}
-		for ; gcd(i+d, int(smallModulous)) != 1; d++ {
-		}
-		diffToNextCoprime[i] = new(big.Int).SetInt64(int64(d))
+	// calculate the diff table for coprimes
+	diffsInt = make([]*big.Int, len(diffs))
+	for i, d := range diffs {
+		diffsInt[i] = big.NewInt(int64(d))
 	}
 }
 
-func gcd(u int, v int) int {
-	if u < 0 {
-		return gcd(-u, v)
-	}
-	if u == 0 {
-		return v
-	}
-	return gcd(v%u, u)
-}
-
-// NextPrime returns a number, p, with p>=n
+// NextPrime returns a number, p, with p >= n
 // and high probability that p is the next prime
 // occuring after n
-func NextPrime(n *big.Int) (p *big.Int) {
-	var mod = new(big.Int)
-	var diff *big.Int
-	p = new(big.Int).Set(n)
+func NextPrime(N *big.Int) (p *big.Int) {
+	m := len(diffsInt)
+	i := int(new(big.Int).Mod(N, big.NewInt(int64(m))).Int64())
+	p = new(big.Int).Set(N)
 	for {
 		if BPSW(p) {
 			return
 		}
-		mod.Mod(p, bigSmallModulous)
-		diff = diffToNextCoprime[int(mod.Int64())]
-		p.Add(p, diff)
+		p.Add(p, diffsInt[i])
+		i = (i + int(diffs[i])) % m
 	}
 }
 
@@ -102,24 +77,23 @@ func BPSW(N *big.Int) bool {
 		sequences with the parameters suggested by Selfridge.
 	*/
 
+	//Step 0: parse input
+	if N.Sign() <= 0 {
+		panic("BPSW is for positive integers only")
+	}
+
 	// Step 1: check  all small primes
-	for _, p := range primesUnder1000 {
-		//check all small primes in some range
-		//note N is big so it wont be = to any p
-		// TODO make a thing holding big versions of p?
-		if new(big.Int).Mod(N, big.NewInt(int64(p))).Sign() == 0 {
-			// if n = 0 mod p
-			if N.BitLen() < 9 && N.Int64() == int64(p) {
-				// if n = p
-				return true
-			}
-			return false
-		}
+	// returns 1 if prime, 0 if composite, -1 else
+	switch SmallPrimeTest(N) {
+	case 1:
+		return true
+	case 0:
+		return false
 	}
 
 	// Step 2: Miller-Rabin test
 	// returns false if composite
-	if !MillerRabin(N, 2) {
+	if !StrongMillerRabin(N, 2) {
 		return false
 	}
 
@@ -132,41 +106,67 @@ func BPSW(N *big.Int) bool {
 	return true
 }
 
-// MillerRabin returns true if N is a MR
+// SmallPrimeTest returns
+//  0 if N is composite
+//  1 if N is prime
+// -1 if undetermined
+func SmallPrimeTest(N *big.Int) int {
+	if N.Sign() < 0 {
+		panic("SmallPrimeTest for non-negative integers only")
+	}
+
+	d := new(big.Int)
+	if d.GCD(nil, nil, N, prodPrimes10).Cmp(one) == 1 {
+		// if d | N and d > 1
+		if N.BitLen() < 11 {
+			// N may be one of the primes in our list
+			n := uint16(N.Int64())
+			for _, p := range primes10 {
+				if n == p {
+					return 1
+				}
+			}
+		}
+		return 0
+	}
+
+	return -1
+}
+
+// StrongMillerRabin returns true if N is a MR
 // psuedoprime in base a, i.e., it returns
 // false if a is a witness for compositeness
 // of N or N os a strong pseudoprime base a
 // use .ProbablyPrime if you want to do a lot
 // of random tests, this is for one specific
 // base value.
-func MillerRabin(N *big.Int, a int64) bool {
+func StrongMillerRabin(N *big.Int, a int64) bool {
 	// Step 0: parse input
-	if N.Sign() <= 0 || a < 2 {
-		panic("Cannot run MR on non-positives!")
+	if N.Sign() < 0 || N.Bit(0) == 0 || a < 2 {
+		panic("MR is for positive odd integers with a >= 2")
 	}
 	A := big.NewInt(a)
-	if new(big.Int).GCD(nil, nil, N, A).Cmp(bigOne) != 0 {
+	if new(big.Int).GCD(nil, nil, N, A).Cmp(one) != 0 {
 		return false
 	}
 
-	// Step 1: factors 2s out of n-1
-	var s uint64
-	d := new(big.Int).Sub(N, bigOne)
-	for d.Bit(0) == 0 {
-		s++
-		d.Rsh(d, 1)
-	}
+	// Step 1: find d,s, so that n - 1 = d*2^s
+	// with d odd
+	d := new(big.Int).Sub(N, one)
+	s := trailingZeroBits(d)
+	d.Rsh(d, s)
 
-	// Step 2: compute powers
-	Ad := new(big.Int).Exp(A, d, N)
-	negOne := new(big.Int).Sub(N, bigOne)
-	if Ad.Cmp(bigOne) == 0 || Ad.Cmp(negOne) == 0 {
+	// Step 2: compute powers a^d
+	// and then a^(d*2^r) for 0<r<s
+	var nm1, Ad big.Int
+	Ad.Exp(A, d, N)
+	nm1.Sub(N, one)
+	if Ad.Cmp(one) == 0 || Ad.Cmp(&nm1) == 0 {
 		return true
 	}
-	var r uint64
-	for r = 1; r < s; r++ {
-		Ad.Exp(Ad, bigTwo, N)
-		if Ad.Cmp(negOne) == 0 {
+	for r := uint(1); r < s; r++ {
+		Ad.Exp(&Ad, two, N)
+		if Ad.Cmp(&nm1) == 0 {
 			return true
 		}
 	}
@@ -185,8 +185,8 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 	//fmt.Printf("Step 0: parsing input\nN = %d\n", N)
 
 	// Step 0: parse input
-	if N.Sign() <= 0 {
-		panic("Cannot run LS on non-positives!")
+	if N.Sign() < 0 || N.Bit(0) == 0 {
+		panic("LS is for positive odd integers, check these yourself")
 	}
 
 	//fmt.Println("Step 1: checking if square")
@@ -204,7 +204,7 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 	D := big.NewInt(5)
 	for JacobiSymbol(D, N) != -1 {
 		//fmt.Printf("trying, N=%d\n D = %d\n", N, D)
-		d := new(big.Int).Add(new(big.Int).Abs(D), bigTwo)
+		d := new(big.Int).Add(new(big.Int).Abs(D), two)
 		if D.Sign() > 0 {
 			d.Neg(d)
 		}
@@ -213,9 +213,9 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 	// Set some variables
 	P := big.NewInt(1) // Selfridge's choice, also set on wiki package
 	// http://en.wikipedia.org/wiki/Lucas_pseudoprime#Implementing_a_Lucas_probable_prime_test
-	Q := new(big.Int).Mod(new(big.Int).Div(new(big.Int).Sub(bigOne, D), big.NewInt(4)), N)
+	Q := new(big.Int).Mod(new(big.Int).Div(new(big.Int).Sub(one, D), big.NewInt(4)), N)
 	//check for some common factors
-	if new(big.Int).GCD(nil, nil, N, Q).Cmp(bigOne) != 0 {
+	if new(big.Int).GCD(nil, nil, N, Q).Cmp(one) != 0 {
 		return false
 	}
 
@@ -223,12 +223,9 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 	//fmt.Println("Step 3: factor out 2's (d,s)")
 
 	// Step 3: Find d so N+1 = 2^s*d with d odd
-	d := new(big.Int).Add(N, bigOne)
-	var s uint64 //this is the exponent of 2, so if overflows than you have more memory than the starship Enterprise
-	for d.Bit(0) == 0 {
-		d.Rsh(d, 1) // TODO right shift all at once --> MUCH faster
-		s++
-	}
+	d := new(big.Int).Add(N, one)
+	s := trailingZeroBits(d)
+	d.Rsh(d, s)
 
 	//fmt.Printf("d = %d\ns = %d\n", d, s)
 	//fmt.Println("Step 4: looking for U_k,V_k,Q^k (Lucas #s)")
@@ -241,15 +238,24 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 		V_16d=0, ..., etc., ending with V_{2^(s-1)*d}=V_{(N+1)/2}=0
 		(all equalities mod N).
 	*/
-	div2 := new(big.Int).ModInverse(bigTwo, N)
-	Uk := big.NewInt(0)            // U_0 = 0
-	Vk := new(big.Int).Set(bigTwo) // V_0 = 2
-	Qk := new(big.Int).Set(bigOne) // Q^0 = 1
+	//div2 := new(big.Int).ModInverse(two, N)
+
+	// divides and sets x to be x/2 mod N
+	divideBy2ModN := func(x *big.Int) *big.Int {
+		if x.Bit(0) != 0 {
+			x.Add(x, N)
+		}
+		return x.Rsh(x, 1)
+	}
+
+	Uk := big.NewInt(0)         // U_0 = 0
+	Vk := new(big.Int).Set(two) // V_0 = 2
+	Qk := new(big.Int).Set(one) // Q^0 = 1
 	// follow repeated squaring algorithm
 	for i := d.BitLen() - 1; i > -1; i-- {
 		//double everything
 		Uk.Mod(new(big.Int).Mul(Uk, Vk), N) // now U_{2k}
-		Vk.Mod(new(big.Int).Sub(new(big.Int).Mul(Vk, Vk), new(big.Int).Mul(bigTwo, Qk)), N)
+		Vk.Mod(new(big.Int).Sub(new(big.Int).Mul(Vk, Vk), new(big.Int).Mul(two, Qk)), N)
 		Qk.Mod(new(big.Int).Mul(Qk, Qk), N) // now Q^{2k}
 		// check small bit
 		if d.Bit(i) == 1 {
@@ -258,8 +264,8 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 			PxUk := new(big.Int).Mod(new(big.Int).Mul(P, Uk), N)
 			DxUk := new(big.Int).Mod(new(big.Int).Mul(D, Uk), N)
 			PxVk := new(big.Int).Mod(new(big.Int).Mul(P, Vk), N)
-			Uk.Mod(new(big.Int).Mul(new(big.Int).Add(PxUk, Vk), div2), N)   // TODO check if even then bit shift instead of mul by div2
-			Vk.Mod(new(big.Int).Mul(new(big.Int).Add(DxUk, PxVk), div2), N) // TODO check if even then bit shift instead of mul by div2
+			Uk.Mod(divideBy2ModN(new(big.Int).Add(PxUk, Vk)), N)
+			Vk.Mod(divideBy2ModN(new(big.Int).Add(DxUk, PxVk)), N)
 		}
 	}
 
@@ -271,13 +277,13 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 		return true
 	}
 	// Now we look at powers V_{{2^r}d} for r = 0..s-1
-	var r uint64
+	var r uint
 	for r = 0; r < s; r++ {
 		if Vk.Sign() == 0 {
 			// if V_{2^rd} = 0
 			return true
 		}
-		Vk.Mod(new(big.Int).Sub(new(big.Int).Mul(Vk, Vk), new(big.Int).Mul(bigTwo, Qk)), N)
+		Vk.Mod(new(big.Int).Sub(new(big.Int).Mul(Vk, Vk), new(big.Int).Mul(two, Qk)), N)
 		Qk.Mod(new(big.Int).Mul(Qk, Q), N)
 	}
 
@@ -292,127 +298,69 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 // see http://en.wikipedia.org/wiki/Jacobi_symbol
 func JacobiSymbol(N *big.Int, D *big.Int) int {
 	//Step 0: parse input / easy cases
-	if D.Sign() <= 0 {
+	if D.Sign() <= 0 || D.Bit(0) == 0 {
 		// we will assume D is positive
 		// wolfram is ok with negative denominator
 		// im not sure what is standard though
-		panic("JacobiSymbol over non-positive Error!")
+		panic("JacobiSymbol defined for positive odd denominator only")
 	}
-	if D.Cmp(bigOne) == 0 || N.Cmp(bigOne) == 0 {
-		return 1
-	}
-	if new(big.Int).GCD(nil, nil, new(big.Int).Abs(N), D).Cmp(bigOne) != 0 {
-		return 0
-	}
-
-	//rest of the stuff
+	var n, d, tmp big.Int
+	n.Set(N)
+	d.Set(D)
 	j := 1
-	n := new(big.Int).Set(N)
-	d := new(big.Int).Set(D)
-Step1:
+
 	for {
 		// Step 1: Reduce the numerator mod the denominator
-		// TODO switch n with n - d if that is smaller abs and use easy
-		// formula for (-1 / d)
-		n = new(big.Int).Mod(n, d)
-
-		//fmt.Printf("step 1, \nn = %d\nd = %d\nj = %d\n", n, d, j)
-
-		// Step 2: extract factors of 2
-		var symMod2 int
-		switch int(new(big.Int).Mod(d, big.NewInt(8)).Int64()) { // TODO: mod 8 is taking first byte?
-		case 1, 7:
-			symMod2 = 1
-		case 3, 5:
-			symMod2 = -1
-		}
-		for n.Bit(0) == 0 { //TODO count bits to shift and do all at once
-			n.Rsh(n, 1)
-			j = j * symMod2
-		}
-
-		//fmt.Printf("step 2, \nn = %d\nd = %d\nj = %d\n", n, d, j)
-
-		// Step 3: check numerator and gcd
-		if n.Cmp(bigOne) == 0 {
-			return j
-		}
-		if new(big.Int).GCD(nil, nil, n, d).Cmp(bigOne) != 0 {
+		n.Mod(&n, &d)
+		if n.Sign() == 0 {
+			// if n,d not relatively prime
 			return 0
 		}
 
-		//fmt.Printf("step 3, \nn = %d\nd = %d\nj = %d\n", n, d, j)
+		//fmt.Printf("step 0, \nn = %d\nd = %d\nj = %d\n", &n, &d, j)
 
-		// Step 4: flip and go back to step 1
-		if int(new(big.Int).Mod(n, big.NewInt(4)).Int64()) != 1 { // n = 3 mod 4
-			if int(new(big.Int).Mod(d, big.NewInt(4)).Int64()) != 1 { // d = 3 mod 4
+		if len(n.Bits()) >= len(d.Bits())-1 {
+			// n > d/2 so swap n with d-n
+			// and multiply j by JacobiSymbol(-1 / d)
+			n.Sub(&d, &n)
+			if d.Bits()[0]&3 == 3 {
+				// if d = 3 mod 4
 				j = -1 * j
 			}
 		}
-		tmp := new(big.Int).Set(n)
-		n.Set(d)
-		d.Set(tmp)
 
-		//fmt.Printf("step 4, \nn = %d\nd = %d\nj = %d\n", n, d, j)
+		//fmt.Printf("step 1, \nn = %d\nd = %d\nj = %d\n", &n, &d, j)
 
-		continue Step1
-	}
-}
-
-// Jacobi returns the Jacobi symbol (x/y), either +1, -1, or 0.
-// The y argument must be an odd integer.
-// Stole from commit
-// https://github.com/golang/go/blob/ac6158828870abcbf7d9ef86c89569a2a7d7020c/src/math/big/int.go
-func Jacobi(x, y *big.Int) int {
-	if len(y.Bits()) == 0 || y.Bits()[0]&1 == 0 {
-		panic(fmt.Sprintf("big: invalid 2nd argument to Int.Jacobi: need odd integer but got %x", y))
-	}
-
-	// We use the formulation described in chapter 2, section 2.4,
-	// "The Yacas Book of Algorithms":
-	// http://yacas.sourceforge.net/Algo.book.pdf
-
-	var a, b, c *big.Int
-	a.Set(x)
-	b.Set(y)
-	j := 1
-
-	if b.Sign() < 0 {
-		if a.Sign() < 0 {
-			j = -1
-		}
-		b.Abs(b)
-	}
-
-	for {
-		if len(b.Bits()) == 1 && b.Bit(0) == 1 {
-			return j
-		}
-		if len(a.Bits()) == 0 {
-			return 0
-		}
-		a.Mod(a, b)
-		if len(a.Bits()) == 0 {
-			return 0
-		}
-		// a > 0
-
-		// handle factors of 2 in 'a'
-		s := a.Bits().trailingZeroBits()
-		if s&1 != 0 {
-			bmod8 := b.Bits()[0] & 7
-			if bmod8 == 3 || bmod8 == 5 {
-				j = -j
+		// Step 2: extract factors of 2
+		s := trailingZeroBits(&n)
+		n.Rsh(&n, s)
+		if s&1 == 1 {
+			switch d.Bits()[0] & 7 {
+			case 3, 5: // d = 3,5 mod 8
+				j = -1 * j
 			}
 		}
-		c.Rsh(a, s) // a = 2^s*c
 
-		// swap numerator and denominator
-		if b.Bits()[0]&3 == 3 && c.Bits()[0]&3 == 3 {
-			j = -j
+		//fmt.Printf("step 2, \nn = %d\nd = %d\nj = %d\n", &n, &d, j)
+
+		// Step 3: check numerator
+		if len(n.Bits()) == 1 && n.Bits()[0] == 1 {
+			// if n = 1 were done
+			return j
 		}
-		a.Set(b)
-		b.Set(c)
+
+		// Step 4: flip and go back to step 1
+		if n.Bits()[0]&3 != 1 { // n = 3 mod 4
+			if d.Bits()[0]&3 != 1 { // d = 3 mod 4
+				j = -1 * j
+			}
+		}
+		tmp.Set(&n)
+		n.Set(&d)
+		d.Set(&tmp)
+
+		//fmt.Printf("step 4, \nn = %d\nd = %d\nj = %d\n", &n, &d, j)
+
 	}
 }
 
@@ -420,8 +368,10 @@ func trailingZeroBits(x *big.Int) (i uint) { //TODO fix, use lookup table for wo
 	if x.Sign() < 0 {
 		panic("unknown bits of negative")
 	}
-	for i > uint(x.BitLen()) && x.Bit(int(i)) != 1 {
-		i++
+	if x.Bit(0) == 1 {
+		return 0
+	}
+	for i = 1; i < uint(x.BitLen()) && x.Bit(int(i)) != 1; i++ {
 	}
 	return
 }
@@ -468,7 +418,7 @@ func IsSquare(N *big.Int) bool {
 		// Set y = [(x + [N/x])/2]
 		y.Rsh(new(big.Int).Add(x, new(big.Int).Div(N, x)), 1)
 		if i > d/2 {
-			if new(big.Int).Abs(new(big.Int).Sub(x, y)).Cmp(bigOne) <= 0 { // |x - y| <= 1
+			if new(big.Int).Abs(new(big.Int).Sub(x, y)).Cmp(one) <= 0 { // |x - y| <= 1
 				return new(big.Int).Mul(x, x).Cmp(N) == 0
 			}
 		}

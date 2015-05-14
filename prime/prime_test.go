@@ -154,24 +154,20 @@ func TestJacobiSymbol(t *testing.T) {
 		N, D *big.Int
 		want int
 	}{
-		//{big.NewInt(15), big.NewInt(45), 0},
+		{big.NewInt(15), big.NewInt(45), 0},
 		{big.NewInt(19), big.NewInt(45), 1},
-		/*{big.NewInt(8), big.NewInt(21), -1},
+		{big.NewInt(8), big.NewInt(21), -1},
 		{big.NewInt(5), big.NewInt(21), 1},
 		{big.NewInt(1001), big.NewInt(9907), -1},
 		{big.NewInt(-7), big.NewInt(5459), -1},
 		{big.NewInt(7), big.NewInt(5459), 1},
-		{big.NewInt(21), big.NewInt(3333), 0},*/
+		{big.NewInt(21), big.NewInt(3333), 0},
 	}
 	for _, c := range cases {
 		got := JacobiSymbol(c.N, c.D)
 		if got != c.want {
 			t.Errorf("Case: ( %d / %d )\nExpected: %x\nGot: %x", c.N, c.D, c.want, got)
 		}
-		//got = Jacobi(c.N, c.D)
-		//if got != c.want {
-		//	t.Errorf("Case: ( %d / %d )\nExpected: %x\nGot: %x", c.N, c.D, c.want, got)
-		//}
 	}
 }
 
@@ -220,8 +216,25 @@ func BenchmarkNextPrime(b *testing.B) {
 
 func BenchmarkIsSquare(b *testing.B) {
 	var r bool
+	n1true, _ := new(big.Int).SetString("240e16068a04dea390a1f96b3f05a1", 16)
+	n1false, _ := new(big.Int).SetString("240e16068a04dea390a1f96b3f05a2", 16)
+	n2true, _ := new(big.Int).SetString("fa8bf08953f8b2c1f941de3fd45b952967a055ff7826e4a436b660db443b024eaeed6fdf0640", 16)
+	n2false, _ := new(big.Int).SetString("fa8bf08953f8b2c1f941de3fd45b952967a055ff7826e4a436b660db443b024eaeed6fdf0641", 16)
+	n3false, _ := new(big.Int).SetString("1e04ded686bffea61355f4c9c76f1e66fba27b9fa8b00f3c5884d3eff369677ad5817d783aa58db408de1310e55cd5e72a8176340", 16)
+	n3true, _ := new(big.Int).SetString("1e04ded686bffea61355f4c9c76f1e66fba27b9fa8b00f3c5884d3eff369677ad5817d783aa58db408de1310e55cd5e72a8176341", 16)
+	n4true, _ := new(big.Int).SetString("7afee5555433fa458dc6e8e62f1cc4533b3488893e4067830385d9b27fbf724f0ca5e4e94a1c46afb09138c1965d8aa8938bebd89ae3b4f13aecd85839f3b5db1c7b9692bc0ef2595cf8640", 16)
+	n4false, _ := new(big.Int).SetString("7afee5555433fa458dc6e8e62f1cc4533b3488893e4067830385d9b27fbf724f0ca5e4e94a1c46afb09138c1965d8aa8938bebd89ae3b4f13aecd85839f3b5db1c7b9692bc0ef2595cf8641", 16)
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		r = IsSquare(benchmarkSquare)
+		r = IsSquare(n1true)
+		r = IsSquare(n2true)
+		r = IsSquare(n3true)
+		r = IsSquare(n4true)
+		r = IsSquare(n1false)
+		r = IsSquare(n2false)
+		r = IsSquare(n3false)
+		r = IsSquare(n4false)
 	}
 	boolResult = r
 }

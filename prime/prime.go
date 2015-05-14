@@ -405,7 +405,7 @@ func IsSquare(N *big.Int) bool {
 	// with the right order of magnitude
 	bytes := make([]byte, d/16)
 	rand.Read(bytes)
-	var x,y,delta big.Int
+	var x, y, delta big.Int
 	x.SetBytes(bytes)
 	y.Set(&x)
 
@@ -416,11 +416,11 @@ func IsSquare(N *big.Int) bool {
 	// so return false in that case
 	// convergence is fast, should take log(number of digits)
 	// add 10 for safety in numbers
-	for i := 0; i < int(math.Log(float64(d))) + 10; i++ {
+	for i := 0; i < int(math.Log(float64(d)))+10; i++ {
 		// Set y = [(x + [N/x])/2]
-		y.Rsh(y.Add(&y,x.Div(N,&x)),1) // note: at this point y = x
+		y.Rsh(y.Add(&y, x.Div(N, &x)), 1) // note: at this point y = x
 		if i > int(math.Log(float64(d))) {
-			delta.Sub(&x,&y)
+			delta.Sub(&x, &y)
 			if len(delta.Bits()) == 0 || (len(delta.Bits()) == 1 && delta.Bits()[0] == 1) {
 				// if |x - y| <= 1
 				return delta.Mul(&x, &x).Cmp(N) == 0
@@ -430,3 +430,25 @@ func IsSquare(N *big.Int) bool {
 	}
 	return false
 }
+
+/*
+func IsSquare2(N *big.Int) bool {
+	var ret, l, r, n big.Int
+	n.Set(N)
+	l.Set(&n)
+	r.Set(&ret)
+	i := 2 * (N.BitLen() / 2)
+	for i >= 0 {
+		l.Rsh(&n, uint(i))
+		r.Lsh(&ret, 1)
+		if l.Cmp(&r) == 1 {
+			n.Sub(&n, r.Or(&r, one).Lsh(&r, uint(i)))
+			ret.Add(&ret, one)
+		}
+		ret.Lsh(&ret, 1)
+		i -= 2
+	}
+	ret.Rsh(&ret, 1)
+	return N.Cmp(ret.Mul(&ret, &ret)) == 0
+}
+*/

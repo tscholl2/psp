@@ -186,7 +186,7 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 
 	// Step 0: parse input
 	if N.Sign() < 0 || N.Bit(0) == 0 {
-		panic("LS is for positive odd integers, check these yourself")
+		panic("LS is for positive odd integers only")
 	}
 
 	//fmt.Println("Step 1: checking if square")
@@ -203,17 +203,20 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 	// Jacobi(D,N) = -1 (Selfridge's algorithm).
 	D := big.NewInt(5)
 	for JacobiSymbol(D, N) != -1 {
-		//fmt.Printf("trying, N=%d\n D = %d\n", N, D)
-		d := new(big.Int).Add(new(big.Int).Abs(D), two)
-		if D.Sign() > 0 {
-			d.Neg(d)
+		if D.Sign() < 0 {
+			D.Sub(D, two)
+		} else {
+			D.Add(D, two)
 		}
-		D.Set(d)
+		D.Neg(D)
 	}
 	// Set some variables
 	P := big.NewInt(1) // Selfridge's choice, also set on wiki package
 	// http://en.wikipedia.org/wiki/Lucas_pseudoprime#Implementing_a_Lucas_probable_prime_test
-	Q := new(big.Int).Mod(new(big.Int).Div(new(big.Int).Sub(one, D), big.NewInt(4)), N)
+	Q := new(big.Int).Sub(one, D)
+	Q.Rsh(Q, 2) // divide by 4
+	Q.Mod(Q, N)
+
 	//check for some common factors
 	if new(big.Int).GCD(nil, nil, N, Q).Cmp(one) != 0 {
 		return false
@@ -238,8 +241,6 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 		V_16d=0, ..., etc., ending with V_{2^(s-1)*d}=V_{(N+1)/2}=0
 		(all equalities mod N).
 	*/
-	//div2 := new(big.Int).ModInverse(two, N)
-
 	// divides and sets x to be x/2 mod N
 	divideBy2ModN := func(x *big.Int) *big.Int {
 		if x.Bit(0) != 0 {
@@ -364,6 +365,10 @@ func JacobiSymbol(N *big.Int, D *big.Int) int {
 	}
 }
 
+// counts the number of zeros at the end of the
+// binary expansion. So 2=10 ---> 1, 4=100 ---> 2
+// 3=111 ---> 0, see test for more examples
+// also 0 ---> 0 and 1 ---> 0
 func trailingZeroBits(x *big.Int) (i uint) { //TODO fix, use lookup table for words
 	if x.Sign() < 0 {
 		panic("unknown bits of negative")
@@ -415,20 +420,21 @@ func IsSquare(N *big.Int) bool {
 	// if it doesn't converge it should alternate between +-1
 	// so return false in that case
 	// convergence is fast, should take log(number of digits)
-	// add 10 for safety in numbers
-	for i := 0; i < int(math.Log(float64(d)))+10; i++ {
+	// with some coefficient... 4 seems like it works
+	i := 0
+	for {
+		i++
 		// Set y = [(x + [N/x])/2]
 		y.Rsh(y.Add(&y, x.Div(N, &x)), 1) // note: at this point y = x
-		if i > int(math.Log(float64(d))) {
+		if i > int(math.Log(float64(d)))*4 {
 			delta.Sub(&x, &y)
-			if len(delta.Bits()) == 0 || (len(delta.Bits()) == 1 && delta.Bits()[0] == 1) {
+			if len(delta.Bits()) == 0 || delta.Bits()[0] == 1 {
 				// if |x - y| <= 1
 				return delta.Mul(&x, &x).Cmp(N) == 0
 			}
 		}
 		x.Set(&y)
 	}
-	return false
 }
 
 /*

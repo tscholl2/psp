@@ -43,33 +43,41 @@ func TestIsSquare(t *testing.T) {
 	n3false2, _ := new(big.Int).SetString("1e04ded686bffea61355f4c9c76f1e66fba27b9fa8b00f3c5884d3eff369677ad5817d783aa58db408de1310e55cd5e72a8176342", 16)
 	n4true, _ := new(big.Int).SetString("7afee5555433fa458dc6e8e62f1cc4533b3488893e4067830385d9b27fbf724f0ca5e4e94a1c46afb09138c1965d8aa8938bebd89ae3b4f13aecd85839f3b5db1c7b9692bc0ef2595cf8640", 16)
 	n4false, _ := new(big.Int).SetString("7afee5555433fa458dc6e8e62f1cc4533b3488893e4067830385d9b27fbf724f0ca5e4e94a1c46afb09138c1965d8aa8938bebd89ae3b4f13aecd85839f3b5db1c7b9692bc0ef2595cf8641", 16)
-
-	cases := []struct {
-		in   *big.Int
-		want bool
-	}{
-		{big.NewInt(-1436278), false},
-		{big.NewInt(0), true},
-		{big.NewInt(1), true},
-		{big.NewInt(15), false},
-		{big.NewInt(16), true},
-		{big.NewInt(3571), false},
-		{big.NewInt(13627856 * 13627856), true},
-		{big.NewInt(13627856), false},
-		{n1true, true},
-		{n2true, true},
-		{n3true, true},
-		{n4true, true},
-		{n1false, false},
-		{n2false, false},
-		{n3false, false},
-		{n3false2, false},
-		{n4false, false},
-	}
-	for _, c := range cases {
-		got := IsSquare(c.in)
-		if got != c.want {
-			t.Errorf("Case: %x\nExpected: %t\nGot: %t", c.in, c.want, got)
+	largetrue, _ := new(big.Int).SetString("3b17f061370666c4f11db552e1dc533fbf30531421a6292207fd136a94f9f011e672a24f0ef1422210ab44f96e43599d6576030ded2b0f9c79fc8b8efd8558f09c168e35895707d7749fb92e18d9f0653efdc05daeee522204766c6aea0f2dbc5793beabbd629e69b38f5c0c56a37fd4ceb27d667ab9d1b098dae5beec2d3bfa96be55a3b9262d5662429ba76fb4f359d5674c0d861c81", 16)
+	largefalse, _ := new(big.Int).SetString("3b17f061370666c4f11db552e1dc533fbf30531421a6292207fd136a94f9f011e672a24f0ef1422210ab44f96e43599d6576030ded2b0f9c79fc8b8efd8558f09c168e35895707d7749fb92e18d9f0653efdc05daeee522204766c6aea0f2dbc5793beabbd629e69b38f5c0c56a37fd4ceb27d667ab9d1b098dae5beec2d3bfa96be55a3b9262d5662429ba76fb4f359d5674c0d861d81", 16)
+	for i := 0; i < 100; i++ {
+		// randomness in the sqrt function
+		// needs a lot of testing to find
+		// edge cases more easily
+		cases := []struct {
+			in   *big.Int
+			want bool
+		}{
+			{big.NewInt(-1436278), false},
+			{big.NewInt(0), true},
+			{big.NewInt(1), true},
+			{big.NewInt(15), false},
+			{big.NewInt(16), true},
+			{big.NewInt(3571), false},
+			{big.NewInt(13627856 * 13627856), true},
+			{big.NewInt(13627856), false},
+			{n1true, true},
+			{n2true, true},
+			{n3true, true},
+			{n4true, true},
+			{n1false, false},
+			{n2false, false},
+			{n3false, false},
+			{n3false2, false},
+			{n4false, false},
+			{largetrue, true},
+			{largefalse, false},
+		}
+		for _, c := range cases {
+			got := IsSquare(c.in)
+			if got != c.want {
+				t.Errorf("Case: %x\nExpected: %t\nGot: %t", c.in, c.want, got)
+			}
 		}
 	}
 }
@@ -224,6 +232,8 @@ func BenchmarkIsSquare(b *testing.B) {
 	n3true, _ := new(big.Int).SetString("1e04ded686bffea61355f4c9c76f1e66fba27b9fa8b00f3c5884d3eff369677ad5817d783aa58db408de1310e55cd5e72a8176341", 16)
 	n4true, _ := new(big.Int).SetString("7afee5555433fa458dc6e8e62f1cc4533b3488893e4067830385d9b27fbf724f0ca5e4e94a1c46afb09138c1965d8aa8938bebd89ae3b4f13aecd85839f3b5db1c7b9692bc0ef2595cf8640", 16)
 	n4false, _ := new(big.Int).SetString("7afee5555433fa458dc6e8e62f1cc4533b3488893e4067830385d9b27fbf724f0ca5e4e94a1c46afb09138c1965d8aa8938bebd89ae3b4f13aecd85839f3b5db1c7b9692bc0ef2595cf8641", 16)
+	largetrue, _ := new(big.Int).SetString("3b17f061370666c4f11db552e1dc533fbf30531421a6292207fd136a94f9f011e672a24f0ef1422210ab44f96e43599d6576030ded2b0f9c79fc8b8efd8558f09c168e35895707d7749fb92e18d9f0653efdc05daeee522204766c6aea0f2dbc5793beabbd629e69b38f5c0c56a37fd4ceb27d667ab9d1b098dae5beec2d3bfa96be55a3b9262d5662429ba76fb4f359d5674c0d861c81", 16)
+	largefalse, _ := new(big.Int).SetString("3b17f061370666c4f11db552e1dc533fbf30531421a6292207fd136a94f9f011e672a24f0ef1422210ab44f96e43599d6576030ded2b0f9c79fc8b8efd8558f09c168e35895707d7749fb92e18d9f0653efdc05daeee522204766c6aea0f2dbc5793beabbd629e69b38f5c0c56a37fd4ceb27d667ab9d1b098dae5beec2d3bfa96be55a3b9262d5662429ba76fb4f359d5674c0d861d81", 16)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		r = IsSquare(benchmarkSquare)
@@ -235,6 +245,8 @@ func BenchmarkIsSquare(b *testing.B) {
 		r = IsSquare(n2false)
 		r = IsSquare(n3false)
 		r = IsSquare(n4false)
+		r = IsSquare(largetrue)
+		r = IsSquare(largefalse)
 	}
 	boolResult = r
 }

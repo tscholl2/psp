@@ -181,26 +181,19 @@ func StrongMillerRabin(N *big.Int, a int64) bool {
 // Lucas-Selfridge pseudoprime and false otherwise
 // see http://www.trnicely.net/misc/bpsw.html
 func StrongLucasSelfridgeTest(N *big.Int) bool {
-
-	//fmt.Printf("Step 0: parsing input\nN = %d\n", N)
-
 	// Step 0: parse input
 	if N.Sign() < 0 || N.Bit(0) == 0 {
 		panic("LS is for positive odd integers only")
 	}
-
-	//fmt.Println("Step 1: checking if square")
 
 	// Step 1: check if N is a perfect square
 	if IsSquare(N) {
 		return false
 	}
 
-	//fmt.Println("Step 2: looking for D (Jacobi Symbol)")
-
 	// Step 2: find the first element D in the
 	// sequence {5, -7, 9, -11, 13, ...} such that
-	// Jacobi(D,N) = -1 (Selfridge's algorithm).
+	// Jacobi(D,N) = -1 (Selfridge's algorithm)
 	D := big.NewInt(5)
 	for JacobiSymbol(D, N) != -1 {
 		if D.Sign() < 0 {
@@ -210,38 +203,24 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 		}
 		D.Neg(D)
 	}
-	// Set some variables
 	P := big.NewInt(1) // Selfridge's choice, also set on wiki package
 	// http://en.wikipedia.org/wiki/Lucas_pseudoprime#Implementing_a_Lucas_probable_prime_test
 	Q := new(big.Int).Sub(one, D)
 	Q.Rsh(Q, 2) // divide by 4
 	Q.Mod(Q, N)
-
-	//check for some common factors
 	if new(big.Int).GCD(nil, nil, N, Q).Cmp(one) != 0 {
+		// sanity check
 		return false
 	}
-
-	//fmt.Printf("D = %d\nP = %d\nQ = %d\n", D, P, Q)
-	//fmt.Println("Step 3: factor out 2's (d,s)")
 
 	// Step 3: Find d so N+1 = 2^s*d with d odd
 	d := new(big.Int).Add(N, one)
 	s := trailingZeroBits(d)
 	d.Rsh(d, s)
 
-	//fmt.Printf("d = %d\ns = %d\n", d, s)
-	//fmt.Println("Step 4: looking for U_k,V_k,Q^k (Lucas #s)")
-
 	// Step 4: Calculate the U's and V's
-	/*
-		The strong Lucas-Selfridge test then returns N as a strong
-		Lucas probable prime (slprp) if any of the following
-		conditions is met: U_d=0, V_d=0, V_2d=0, V_4d=0, V_8d=0,
-		V_16d=0, ..., etc., ending with V_{2^(s-1)*d}=V_{(N+1)/2}=0
-		(all equalities mod N).
-	*/
-	// divides and sets x to be x/2 mod N
+	// return true if we have any of the equalities (mod N)
+	// U_d=0, V_d=0, V_2d=0, V_4d=0, V_8d=0,...,V_{2^(s-1)d}
 	divideBy2ModN := func(x *big.Int) *big.Int {
 		if x.Bit(0) != 0 {
 			x.Add(x, N)
@@ -262,7 +241,6 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 		Vk.Mod(Vk, N) // now V_{2k}
 		Qk.Mul(Qk, Qk)
 		Qk.Mod(Qk, N) // now Q^{2k}
-		// check small bit
 		if d.Bit(i) == 1 {
 			// if bit is set then increment by 1
 			Qk.Mul(Qk, Q)
@@ -277,9 +255,6 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 			Vk.Mod(divideBy2ModN(tmp.Add(&DxUk, &PxVk)), N) // now V_{2k+1}
 		}
 	}
-
-	//fmt.Printf("U_d = %d\nV_d = %d\nQ^d = %d\n", Uk, Vk, Qk)
-
 	// U_k, V_k, Q^k are now all with k=d
 	if Uk.Sign() == 0 {
 		// if U_d = 0
@@ -318,7 +293,6 @@ func JacobiSymbol(N *big.Int, D *big.Int) int {
 	n.Set(N)
 	d.Set(D)
 	j := 1
-
 	for {
 		// Step 1: Reduce the numerator mod the denominator
 		n.Mod(&n, &d)
@@ -326,9 +300,6 @@ func JacobiSymbol(N *big.Int, D *big.Int) int {
 			// if n,d not relatively prime
 			return 0
 		}
-
-		//fmt.Printf("step 0, \nn = %d\nd = %d\nj = %d\n", &n, &d, j)
-
 		if len(n.Bits()) >= len(d.Bits())-1 {
 			// n > d/2 so swap n with d-n
 			// and multiply j by JacobiSymbol(-1 / d)
@@ -339,8 +310,6 @@ func JacobiSymbol(N *big.Int, D *big.Int) int {
 			}
 		}
 
-		//fmt.Printf("step 1, \nn = %d\nd = %d\nj = %d\n", &n, &d, j)
-
 		// Step 2: extract factors of 2
 		s := trailingZeroBits(&n)
 		n.Rsh(&n, s)
@@ -350,8 +319,6 @@ func JacobiSymbol(N *big.Int, D *big.Int) int {
 				j = -1 * j
 			}
 		}
-
-		//fmt.Printf("step 2, \nn = %d\nd = %d\nj = %d\n", &n, &d, j)
 
 		// Step 3: check numerator
 		if len(n.Bits()) == 1 && n.Bits()[0] == 1 {
@@ -368,9 +335,6 @@ func JacobiSymbol(N *big.Int, D *big.Int) int {
 		tmp.Set(&n)
 		n.Set(&d)
 		d.Set(&tmp)
-
-		//fmt.Printf("step 4, \nn = %d\nd = %d\nj = %d\n", &n, &d, j)
-
 	}
 }
 
@@ -378,7 +342,9 @@ func JacobiSymbol(N *big.Int, D *big.Int) int {
 // binary expansion. So 2=10 ---> 1, 4=100 ---> 2
 // 3=111 ---> 0, see test for more examples
 // also 0 ---> 0 and 1 ---> 0
-func trailingZeroBits(x *big.Int) (i uint) { //TODO fix, use lookup table for words
+func trailingZeroBits(x *big.Int) (i uint) {
+	// TODO fix, use lookup table for words
+	// see golang big pkg source code for nat
 	if x.Sign() < 0 {
 		panic("unknown bits of negative")
 	}
@@ -392,7 +358,7 @@ func trailingZeroBits(x *big.Int) (i uint) { //TODO fix, use lookup table for wo
 
 // IsSquare returns true if N is a perfect
 // square, that is N = m^2 for some positive
-// integer m. Basically applies newtons method
+// integer m. Uses newtons method
 func IsSquare(N *big.Int) bool {
 	// Step -1: check inputs
 	if N.Sign() <= 0 {
@@ -429,13 +395,13 @@ func IsSquare(N *big.Int) bool {
 	// if it doesn't converge it should alternate between +-1
 	// so return false in that case
 	// convergence is fast, should take log(number of digits)
-	// with some coefficient... 4 seems like it works
+	// with some coefficient... 5 seems like it works
 	i := 0
 	for {
 		i++
 		// Set y = [(x + [N/x])/2]
 		y.Rsh(y.Add(&y, x.Div(N, &x)), 1) // note: at this point y = x
-		if i > int(math.Log(float64(d)))*4 {
+		if i > int(math.Log(float64(d)))*5 {
 			delta.Sub(&x, &y)
 			if len(delta.Bits()) == 0 || delta.Bits()[0] == 1 {
 				// if |x - y| <= 1

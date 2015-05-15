@@ -10,7 +10,8 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/tscholl2/psp/prime"
+	"github.com/tscholl2/goprime"
+
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/armor"
 	"golang.org/x/crypto/openpgp/errors"
@@ -186,7 +187,7 @@ func Primes() (p *big.Int, q *big.Int, err error) {
 
 	// get a new q prime
 	qtmp := new(big.Int).Div(N, p)
-	q = prime.NextPrime(qtmp)
+	q = goprime.NextPrime(qtmp)
 
 	//fmt.Println("FINAL N")
 	//fmt.Println(base64.StdEncoding.EncodeToString(N.Mul(p, q).Bytes()))

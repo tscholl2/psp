@@ -99,6 +99,10 @@ func TestStrongLucasSelfridgeTest(t *testing.T) {
 		{big.NewInt(3571), true},         // large prime
 		{big.NewInt(5459), true},         // NOT prime! a strong Lucas psuedoprime
 		{n, true},                        //also a strong lsps!, BPSW says composite though
+		{big.NewInt(364387 * 362751), false},
+		{big.NewInt(364387 * 362753), false},
+		{big.NewInt(364387 * 362755), false},
+		{big.NewInt(364387 * 362757), false},
 	}
 	for _, c := range cases {
 		got := StrongLucasSelfridgeTest(c.in)

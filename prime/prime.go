@@ -103,6 +103,8 @@ func BPSW(N *big.Int) bool {
 		return false
 	}
 
+	// Step 4: If didn't fail other tests
+	// return true, i.e. this passed
 	return true
 }
 
@@ -114,7 +116,6 @@ func SmallPrimeTest(N *big.Int) int {
 	if N.Sign() < 0 {
 		panic("SmallPrimeTest for non-negative integers only")
 	}
-
 	d := new(big.Int)
 	if d.GCD(nil, nil, N, prodPrimes10).Cmp(one) == 1 {
 		// if d | N and d > 1
@@ -129,7 +130,6 @@ func SmallPrimeTest(N *big.Int) int {
 		}
 		return 0
 	}
-
 	return -1
 }
 
@@ -233,7 +233,7 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 	//fmt.Printf("d = %d\ns = %d\n", d, s)
 	//fmt.Println("Step 4: looking for U_k,V_k,Q^k (Lucas #s)")
 
-	// Step 4: Calculate the V's
+	// Step 4: Calculate the U's and V's
 	/*
 		The strong Lucas-Selfridge test then returns N as a strong
 		Lucas probable prime (slprp) if any of the following
@@ -248,25 +248,33 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 		}
 		return x.Rsh(x, 1)
 	}
-
+	var tmp, PxUk, DxUk, PxVk big.Int
 	Uk := big.NewInt(0)         // U_0 = 0
 	Vk := new(big.Int).Set(two) // V_0 = 2
 	Qk := new(big.Int).Set(one) // Q^0 = 1
 	// follow repeated squaring algorithm
 	for i := d.BitLen() - 1; i > -1; i-- {
-		//double everything
-		Uk.Mod(new(big.Int).Mul(Uk, Vk), N) // now U_{2k}
-		Vk.Mod(new(big.Int).Sub(new(big.Int).Mul(Vk, Vk), new(big.Int).Mul(two, Qk)), N)
-		Qk.Mod(new(big.Int).Mul(Qk, Qk), N) // now Q^{2k}
+		// double everything
+		Uk.Mul(Uk, Vk)
+		Uk.Mod(Uk, N) // now U_{2k}
+		Vk.Mul(Vk, Vk)
+		Vk.Sub(Vk, tmp.Lsh(Qk, 1))
+		Vk.Mod(Vk, N) // now V_{2k}
+		Qk.Mul(Qk, Qk)
+		Qk.Mod(Qk, N) // now Q^{2k}
 		// check small bit
 		if d.Bit(i) == 1 {
-			// increment by 1
-			Qk.Mod(new(big.Int).Mul(Qk, Q), N)
-			PxUk := new(big.Int).Mod(new(big.Int).Mul(P, Uk), N)
-			DxUk := new(big.Int).Mod(new(big.Int).Mul(D, Uk), N)
-			PxVk := new(big.Int).Mod(new(big.Int).Mul(P, Vk), N)
-			Uk.Mod(divideBy2ModN(new(big.Int).Add(PxUk, Vk)), N)
-			Vk.Mod(divideBy2ModN(new(big.Int).Add(DxUk, PxVk)), N)
+			// if bit is set then increment by 1
+			Qk.Mul(Qk, Q)
+			Qk.Mod(Qk, N) // now Q^{2k+1}
+			PxUk.Mul(P, Uk)
+			PxUk.Mod(&PxUk, N)
+			DxUk.Mul(D, Uk)
+			DxUk.Mod(&DxUk, N)
+			PxVk.Mul(P, Vk)
+			PxVk.Mod(&PxVk, N)
+			Uk.Mod(divideBy2ModN(tmp.Add(&PxUk, Vk)), N)    // now U_{2k+1}
+			Vk.Mod(divideBy2ModN(tmp.Add(&DxUk, &PxVk)), N) // now V_{2k+1}
 		}
 	}
 
@@ -284,11 +292,12 @@ func StrongLucasSelfridgeTest(N *big.Int) bool {
 			// if V_{2^rd} = 0
 			return true
 		}
-		Vk.Mod(new(big.Int).Sub(new(big.Int).Mul(Vk, Vk), new(big.Int).Mul(two, Qk)), N)
-		Qk.Mod(new(big.Int).Mul(Qk, Q), N)
+		Vk.Mul(Vk, Vk)
+		Vk.Sub(Vk, tmp.Lsh(Qk, 1))
+		Vk.Mod(Vk, N) // V_{2^{r+1}d}
+		Qk.Mul(Qk, Qk)
+		Qk.Mod(Qk, N) // Q_{2^(r+1)d}
 	}
-
-	//fmt.Println("Step 5: no pass, return false")
 
 	// Step 5: return false because it didn't pass the test
 	return false

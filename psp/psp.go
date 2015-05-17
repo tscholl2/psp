@@ -21,17 +21,28 @@ import (
 	"golang.org/x/crypto/openpgp/packet"
 )
 
+//Key Types
+const (
+	PublicKeyPGP               = 1
+	PrivateKeyPGP              = 2
+	PublicKeyOpenssl           = 3
+	PrivateKeyOpenssl          = 4
+	CertificateRequest         = 5
+	SelfSignedCertificate      = 6
+	AuthoritySignedCertificate = 7
+)
+
 var one = big.NewInt(1)
 
-// ArmorUpPrivatePem returns ascii armored
-// PEM format private RSA key for given identity
-// ArmorUpPrivate returns ascii armored version of
-// private parts of the openpgp entity.
-func ArmorUpPrivatePem(e *openpgp.Entity) (string, error) {
+// ExportPrivatePEM returns private RSA key for given identity
+// in PEM suitable for use with openssl.
+// To inspect a public key use
+//   openssl pkey -in priv_file -noout -text
+func ExportPrivatePEM(priv *rsa.PrivateKey) (string, error) {
 	block := pem.Block{
 		Type:    "RSA PRIVATE KEY",
-		Headers: map[string]string{"Made with": "PSP"},
-		Bytes:   x509.MarshalPKCS1PrivateKey(e.PrivateKey.PrivateKey.(*rsa.PrivateKey)),
+		Headers: nil, //HEADERS WILL MAKE OPENSSL UNABLE TO LOAD KEY
+		Bytes:   x509.MarshalPKCS1PrivateKey(priv),
 	}
 	w := bytes.NewBuffer(nil)
 	err := pem.Encode(w, &block)
@@ -41,9 +52,36 @@ func ArmorUpPrivatePem(e *openpgp.Entity) (string, error) {
 	return w.String(), nil
 }
 
-// ArmorUpCertificateRequest returns ascii armored
-// certificate signing request with the given entity
-func ArmorUpCertificateRequest(e *openpgp.Entity) (string, error) {
+// ExportPublicPEM returns public RSA key for given identity
+// in PEM suitable for use with openssl.
+// To inspect a public key use
+//   openssl pkey -in pub_file -noout -text -pubin
+func ExportPublicPEM(pub *rsa.PublicKey) (string, error) {
+	b, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		return "", fmt.Errorf("Error reading public key: %s", err)
+	}
+	block := pem.Block{
+		Type:    "PUBLIC KEY",
+		Headers: nil, //HEADERS WILL MAKE OPENSSL UNABLE TO LOAD KEY
+		Bytes:   b,
+	}
+	w := bytes.NewBuffer(nil)
+	err = pem.Encode(w, &block)
+	if err != nil {
+		return "", fmt.Errorf("Error writing PEM: %s", err)
+	}
+	return w.String(), nil
+}
+
+// ExportCertificateRequest returns certificate signing
+// request with the given entity/data encoded in PEM suitable for
+// use with openssl and giving to a CA.
+// To inspect a certifcate use
+//    openssl x509 -in cert_file -noout -text
+// To inspect a certificate request use
+//   openssl req -in csr_file -noout -text
+func ExportCertificateRequest(e *openpgp.Entity) (string, error) {
 	var err error
 	template := x509.CertificateRequest{
 		Subject: pkix.Name{
@@ -69,14 +107,13 @@ func ArmorUpCertificateRequest(e *openpgp.Entity) (string, error) {
 	return w.String(), nil
 }
 
-// ArmorUpPublic returns ascii armored version of
-// public parts of the openpgp entity. So this will
-// be the public part of the pgp key in ascii form.
-func ArmorUpPublic(e *openpgp.Entity) (string, error) {
+// ExportPublicPGP returns ascii armored version of
+// public key of the entity suitable for PGP.
+func ExportPublicPGP(e *openpgp.Entity) (string, error) {
 	var err error
 	w := bytes.NewBuffer(nil)
 	wr, err := armor.Encode(
-		w, openpgp.PublicKeyType, map[string]string{"Made with": "Sass"})
+		w, openpgp.PublicKeyType, nil)
 	if err != nil {
 		return "", fmt.Errorf("Error encoding Armor: %s", err)
 	}
@@ -91,13 +128,14 @@ func ArmorUpPublic(e *openpgp.Entity) (string, error) {
 	return w.String(), nil
 }
 
-// ArmorUpPrivate returns ascii armored version of
-// private parts of the openpgp entity.
-func ArmorUpPrivate(e *openpgp.Entity) (string, error) {
+// ExportPrivatePGP returns ascii armored version of
+// private parts of the openpgp entity suitable
+// for use with PGP.
+func ExportPrivatePGP(e *openpgp.Entity) (string, error) {
 	var err error
 	w := bytes.NewBuffer(nil)
 	wr, err := armor.Encode(
-		w, openpgp.PrivateKeyType, map[string]string{"Made with": "Sass"})
+		w, openpgp.PrivateKeyType, nil)
 	if err != nil {
 		return "", fmt.Errorf("Error encoding Armor: %s", err)
 	}
@@ -154,7 +192,7 @@ func NewEntity(name string, comment string, email string, priv *rsa.PrivateKey) 
 // NewRsaKey returns a new rsa private key
 // using the primes generated from Primes()
 // it is pretty much a copy of crypto/rsa.GenerateKey()
-func NewRsaKey(bits uint) (*rsa.PrivateKey, error) {
+func NewRsaKey(bits uint, message string, keyType int) (*rsa.PrivateKey, error) {
 	//initialize values
 	var p, q, d, n *big.Int
 	var err error
@@ -169,8 +207,7 @@ func NewRsaKey(bits uint) (*rsa.PrivateKey, error) {
 SearchForPrimes:
 	for {
 
-		p, q, err = Primes(
-			"/this/string/is/64/characters/long/dont/you/see/that/please/see/", 1024, 1)
+		p, q, err = Primes(message, bits/2, keyType)
 		if err != nil {
 			return nil, fmt.Errorf("Error getting primes: %s", err.Error())
 		}
@@ -217,7 +254,13 @@ SearchForPrimes:
 // keyType represents the type of pgp key that will
 // be generated. The offset changes. Right now it
 // supports:
-//   keyType = 1 ---> pgp message encryption
+//   keyType = 1 ---> pgp public key
+//   keyType = 2 ---> pgp private key
+//   keyType = 3 ---> openssl public key
+//   keyType = 4 ---> openssl private key
+//   keyType = 5 ---> certificate request
+//   keyType = 6 ---> self signed certificate
+//   keyType = 7 ---> authority signed cert
 func Primes(message string, bits uint, keyType int) (p *big.Int, q *big.Int, err error) {
 	//check input
 	if bits < 1024 {
@@ -230,11 +273,21 @@ func Primes(message string, bits uint, keyType int) (p *big.Int, q *big.Int, err
 	var offset int
 	switch keyType {
 	case 1:
-		//offset = 37 //pgp public key
-		//offset = 39 //certificate request
-		offset = 65
+		offset = 37 // pgp public key
+	case 2:
+		offset = 37 // pgp private key
+	case 3:
+		offset = 15 // for openssl public key
+	case 4:
+		offset = 36 // for openssl private key
+	case 5:
+		offset = 39 // certificate request
+	case 6:
+		offset = 19 // for self signed certificate with THIS key probably
+	case 7:
+		offset = 54 // for authority signed certificates?
 	default:
-		return nil, nil, fmt.Errorf("Unknown keyType")
+		return nil, nil, fmt.Errorf("Unknown type argument")
 	}
 
 	// decode sass to bytes

@@ -112,8 +112,7 @@ func ExportCertificateRequest(e *openpgp.Entity) (string, error) {
 func ExportPublicPGP(e *openpgp.Entity) (string, error) {
 	var err error
 	w := bytes.NewBuffer(nil)
-	wr, err := armor.Encode(
-		w, openpgp.PublicKeyType, nil)
+	wr, err := armor.Encode(w, openpgp.PublicKeyType, nil)
 	if err != nil {
 		return "", fmt.Errorf("Error encoding Armor: %s", err)
 	}
@@ -134,8 +133,7 @@ func ExportPublicPGP(e *openpgp.Entity) (string, error) {
 func ExportPrivatePGP(e *openpgp.Entity) (string, error) {
 	var err error
 	w := bytes.NewBuffer(nil)
-	wr, err := armor.Encode(
-		w, openpgp.PrivateKeyType, nil)
+	wr, err := armor.Encode(w, openpgp.PrivateKeyType, nil)
 	if err != nil {
 		return "", fmt.Errorf("Error encoding Armor: %s", err)
 	}
@@ -167,6 +165,7 @@ func NewEntity(name string, comment string, email string, priv *rsa.PrivateKey) 
 		PrivateKey: packet.NewRSAPrivateKey(currentTime, priv),
 		Identities: make(map[string]*openpgp.Identity),
 	}
+
 	isPrimaryID := true
 	e.Identities[uid.Id] = &openpgp.Identity{
 		Name:   uid.Name,
@@ -185,6 +184,7 @@ func NewEntity(name string, comment string, email string, priv *rsa.PrivateKey) 
 	}
 	e.Identities[uid.Id].SelfSignature.SignKey(e.PrimaryKey, e.PrivateKey, nil)
 	e.Identities[uid.Id].SelfSignature.SignUserId(uid.Id, e.PrimaryKey, e.PrivateKey, nil)
+
 	return
 
 }
@@ -287,7 +287,10 @@ func Primes(message string, bits uint, keyType int) (p *big.Int, q *big.Int, err
 	case 7:
 		offset = 54 // for authority signed certificates?
 	default:
-		return nil, nil, fmt.Errorf("Unknown type argument")
+		offset = keyType //custom
+		if offset < 10 || offset > 100 {
+			return nil, nil, fmt.Errorf("Unknown type argument")
+		}
 	}
 
 	// decode sass to bytes

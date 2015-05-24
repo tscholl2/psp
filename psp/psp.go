@@ -7,7 +7,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"math/big"
@@ -151,8 +150,8 @@ func ExportPrivatePGP(e *openpgp.Entity) (string, error) {
 // NewEntity returns a new openpgp entity for the given rsa key
 // mostly to be used with NewRsaKey()
 func NewEntity(name string, comment string, email string, priv *rsa.PrivateKey) (e *openpgp.Entity, err error) {
-	currentTime := time.Date(2015, time.March, 14, 9, 26, 53, 58, time.UTC) //pi day!
-	//currentTime := time.Now()
+	//currentTime := time.Date(2015, time.March, 14, 9, 26, 53, 58, time.UTC) //pi day!
+	currentTime := time.Now()
 
 	uid := packet.NewUserId(name, comment, email)
 	if uid == nil {
@@ -171,17 +170,114 @@ func NewEntity(name string, comment string, email string, priv *rsa.PrivateKey) 
 		Name:   uid.Name,
 		UserId: uid,
 		SelfSignature: &packet.Signature{
-			CreationTime: currentTime,
-			SigType:      packet.SigTypePositiveCert,
-			PubKeyAlgo:   packet.PubKeyAlgoRSA,
-			Hash:         crypto.SHA256,
-			IsPrimaryId:  &isPrimaryID,
-			FlagsValid:   true,
-			FlagSign:     true,
-			FlagCertify:  true,
-			IssuerKeyId:  &e.PrimaryKey.KeyId,
+			CreationTime:         currentTime,
+			SigType:              packet.SigTypePositiveCert,
+			PubKeyAlgo:           packet.PubKeyAlgoRSA,
+			Hash:                 crypto.SHA1,
+			PreferredHash:        []uint8{2},
+			PreferredCompression: []uint8{0},
+			PreferredSymmetric:   []uint8{0, 2},
+			IsPrimaryId:          &isPrimaryID,
+			FlagsValid:           true,
+			FlagSign:             true,
+			FlagCertify:          true,
+			IssuerKeyId:          &e.PrimaryKey.KeyId,
 		},
 	}
+	// PreferredSymmetric, PreferredHash, PreferredCompression []uint8
+	// constants at http://tools.ietf.org/html/rfc4880#section-9
+	/*
+		9.1.  Public-Key Algorithms
+
+		      ID           Algorithm
+		      --           ---------
+		      1          - RSA (Encrypt or Sign) [HAC]
+		      2          - RSA Encrypt-Only [HAC]
+		      3          - RSA Sign-Only [HAC]
+		      16         - Elgamal (Encrypt-Only) [ELGAMAL] [HAC]
+		      17         - DSA (Digital Signature Algorithm) [FIPS186] [HAC]
+		      18         - Reserved for Elliptic Curve
+		      19         - Reserved for ECDSA
+		      20         - Reserved (formerly Elgamal Encrypt or Sign)
+		      21         - Reserved for Diffie-Hellman (X9.42,
+		                   as defined for IETF-S/MIME)
+		      100 to 110 - Private/Experimental algorithm
+
+		   Implementations MUST implement DSA for signatures, and Elgamal for
+		   encryption.  Implementations SHOULD implement RSA keys (1).  RSA
+		   Encrypt-Only (2) and RSA Sign-Only are deprecated and SHOULD NOT be
+		   generated, but may be interpreted.  See Section 13.5.  See Section
+		   13.8 for notes on Elliptic Curve (18), ECDSA (19), Elgamal Encrypt or
+		   Sign (20), and X9.42 (21).  Implementations MAY implement any other
+		   algorithm.
+
+		9.2.  Symmetric-Key Algorithms
+
+		       ID           Algorithm
+		       --           ---------
+		       0          - Plaintext or unencrypted data
+		       1          - IDEA [IDEA]
+		       2          - TripleDES (DES-EDE, [SCHNEIER] [HAC] -
+		                    168 bit key derived from 192)
+		       3          - CAST5 (128 bit key, as per [RFC2144])
+		       4          - Blowfish (128 bit key, 16 rounds) [BLOWFISH]
+		       5          - Reserved
+		       6          - Reserved
+		       7          - AES with 128-bit key [AES]
+		       8          - AES with 192-bit key
+		       9          - AES with 256-bit key
+		       10         - Twofish with 256-bit key [TWOFISH]
+		       100 to 110 - Private/Experimental algorithm
+
+		   Implementations MUST implement TripleDES.  Implementations SHOULD
+		   implement AES-128 and CAST5.  Implementations that interoperate with
+
+
+
+
+		Callas, et al               Standards Track                    [Page 62]
+
+		RFC 4880                 OpenPGP Message Format            November 2007
+
+
+		   PGP 2.6 or earlier need to support IDEA, as that is the only
+		   symmetric cipher those versions use.  Implementations MAY implement
+		   any other algorithm.
+
+		9.3.  Compression Algorithms
+
+		       ID           Algorithm
+		       --           ---------
+		       0          - Uncompressed
+		       1          - ZIP [RFC1951]
+		       2          - ZLIB [RFC1950]
+		       3          - BZip2 [BZ2]
+		       100 to 110 - Private/Experimental algorithm
+
+		   Implementations MUST implement uncompressed data.  Implementations
+		   SHOULD implement ZIP.  Implementations MAY implement any other
+		   algorithm.
+
+		9.4.  Hash Algorithms
+
+		      ID           Algorithm                             Text Name
+		      --           ---------                             ---------
+		      1          - MD5 [HAC]                             "MD5"
+		      2          - SHA-1 [FIPS180]                       "SHA1"
+		      3          - RIPE-MD/160 [HAC]                     "RIPEMD160"
+		      4          - Reserved
+		      5          - Reserved
+		      6          - Reserved
+		      7          - Reserved
+		      8          - SHA256 [FIPS180]                      "SHA256"
+		      9          - SHA384 [FIPS180]                      "SHA384"
+		      10         - SHA512 [FIPS180]                      "SHA512"
+		      11         - SHA224 [FIPS180]                      "SHA224"
+		      100 to 110 - Private/Experimental algorithm
+
+		   Implementations MUST implement SHA-1.  Implementations MAY implement
+		   other algorithms.  MD5 is deprecated.
+	*/
 	e.Identities[uid.Id].SelfSignature.SignKey(e.PrimaryKey, e.PrivateKey, nil)
 	e.Identities[uid.Id].SelfSignature.SignUserId(uid.Id, e.PrimaryKey, e.PrivateKey, nil)
 
@@ -294,7 +390,9 @@ func Primes(message string, bits uint, keyType int) (p *big.Int, q *big.Int, err
 	}
 
 	// decode sass to bytes
-	sass, _ := base64.StdEncoding.DecodeString(message)
+	/*
+		sass, _ := base64.StdEncoding.DecodeString(message)
+	*/
 
 	// geneterate primes
 	p, err = rand.Prime(rand.Reader, int(bits))
@@ -309,12 +407,14 @@ func Primes(message string, bits uint, keyType int) (p *big.Int, q *big.Int, err
 	}
 	N := new(big.Int).Mul(p, q)
 
-	// insert sass
-	b := N.Bytes()
-	for i := 0; i < len(sass); i++ {
-		b[i+offset] = sass[i]
-	}
-	N.SetBytes(b)
+	/*
+		// insert sass
+		b := N.Bytes()
+		for i := 0; i < len(sass); i++ {
+			b[i+offset] = sass[i]
+		}
+		N.SetBytes(b)
+	*/
 
 	// get a new q prime
 	qtmp := new(big.Int).Div(N, p)

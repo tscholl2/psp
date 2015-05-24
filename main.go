@@ -23,5 +23,5 @@ func main() {
 	if err != nil {
 		fmt.Errorf("Error: %s", err.Error())
 	}
-	fmt.Println(s)
+	fmt.Printf("%s\n", s)
 }

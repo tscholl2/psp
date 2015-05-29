@@ -11,6 +11,9 @@ func main() {
 	var err error
 	k, _ := psp.NewRsaKey(2048, "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/", 1)
 
+	//fmt.Printf("p=\n%x\n", k.Primes[0])
+	//fmt.Printf("q=\n%x\n", k.Primes[1])
+
 	e, err := psp.NewEntity("name", "comment", "em@il", k)
 	if err != nil {
 		fmt.Errorf("Error: %s", err.Error())

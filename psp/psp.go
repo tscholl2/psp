@@ -170,20 +170,23 @@ func NewEntity(name string, comment string, email string, priv *rsa.PrivateKey) 
 		Name:   uid.Name,
 		UserId: uid,
 		SelfSignature: &packet.Signature{
-			CreationTime:         currentTime,
-			SigType:              packet.SigTypePositiveCert,
-			PubKeyAlgo:           packet.PubKeyAlgoRSA,
-			Hash:                 crypto.SHA1,
-			PreferredHash:        []uint8{8,2,9,10,11},
-			PreferredCompression: []uint8{2,3,1},
-			PreferredSymmetric:   []uint8{9,8,7,3,2},
-			IsPrimaryId:          &isPrimaryID,
-			FlagsValid:           true,
-			FlagSign:             true,
-			FlagCertify:          true,
-			IssuerKeyId:          &e.PrimaryKey.KeyId,
+			CreationTime:              currentTime,
+			SigType:                   packet.SigTypePositiveCert,
+			PubKeyAlgo:                packet.PubKeyAlgoRSA,
+			Hash:                      crypto.SHA1,
+			PreferredHash:             []uint8{8, 2, 9, 10, 11},
+			PreferredCompression:      []uint8{2, 3, 1},
+			PreferredSymmetric:        []uint8{9, 8, 7, 3, 2},
+			IsPrimaryId:               &isPrimaryID,
+			FlagsValid:                true,
+			FlagSign:                  true,
+			FlagCertify:               true,
+			FlagEncryptCommunications: true,
+			FlagEncryptStorage:        true,
+			IssuerKeyId:               &e.PrimaryKey.KeyId,
 		},
 	}
+
 	// PreferredSymmetric, PreferredHash, PreferredCompression []uint8
 	// constants at http://tools.ietf.org/html/rfc4880#section-9
 	/*

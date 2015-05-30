@@ -7,6 +7,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"math/big"
@@ -22,18 +23,16 @@ import (
 
 //Key Types
 const (
-	PublicKeyPGP               = 1
-	PrivateKeyPGP              = 2
-	PublicKeyOpenssl           = 3
-	PrivateKeyOpenssl          = 4
-	CertificateRequest         = 5
-	SelfSignedCertificate      = 6
-	AuthoritySignedCertificate = 7
+	TypePublicKeyPGP               = 1
+	TypePrivateKeyPGP              = 2
+	TypePublicKeyOpenssl           = 3
+	TypePrivateKeyOpenssl          = 4
+	TypeCertificateRequest         = 5
+	TypeSelfSignedCertificate      = 6
+	TypeAuthoritySignedCertificate = 7
 )
 
-var one = big.NewInt(1)
-
-// ExportPrivatePEM returns private RSA key for given identity
+// ExportPrivatePEM returns private RSA key
 // in PEM suitable for use with openssl.
 // To inspect a public key use
 //   openssl pkey -in priv_file -noout -text
@@ -51,7 +50,7 @@ func ExportPrivatePEM(priv *rsa.PrivateKey) (string, error) {
 	return w.String(), nil
 }
 
-// ExportPublicPEM returns public RSA key for given identity
+// ExportPublicPEM returns public RSA key
 // in PEM suitable for use with openssl.
 // To inspect a public key use
 //   openssl pkey -in pub_file -noout -text -pubin
@@ -62,7 +61,7 @@ func ExportPublicPEM(pub *rsa.PublicKey) (string, error) {
 	}
 	block := pem.Block{
 		Type:    "PUBLIC KEY",
-		Headers: nil, //HEADERS WILL MAKE OPENSSL UNABLE TO LOAD KEY
+		Headers: nil, //headers make openssl unable to load key
 		Bytes:   b,
 	}
 	w := bytes.NewBuffer(nil)
@@ -82,6 +81,7 @@ func ExportPublicPEM(pub *rsa.PublicKey) (string, error) {
 //   openssl req -in csr_file -noout -text
 func ExportCertificateRequest(e *openpgp.Entity) (string, error) {
 	var err error
+	// TODO - make template an input with some defaults
 	template := x509.CertificateRequest{
 		Subject: pkix.Name{
 			CommonName:         "domain.com",
@@ -158,25 +158,56 @@ func NewEntity(name string, comment string, email string, priv *rsa.PrivateKey) 
 		err = errors.InvalidArgumentError("user id field contained invalid characters")
 		return
 	}
-
 	e = &openpgp.Entity{
 		PrimaryKey: packet.NewRSAPublicKey(currentTime, &priv.PublicKey),
 		PrivateKey: packet.NewRSAPrivateKey(currentTime, priv),
 		Identities: make(map[string]*openpgp.Identity),
 	}
-
 	isPrimaryID := true
 	e.Identities[uid.Id] = &openpgp.Identity{
 		Name:   uid.Name,
 		UserId: uid,
 		SelfSignature: &packet.Signature{
-			CreationTime:              currentTime,
-			SigType:                   packet.SigTypePositiveCert,
-			PubKeyAlgo:                packet.PubKeyAlgoRSA,
-			Hash:                      crypto.SHA1,
-			PreferredHash:             []uint8{8, 2, 9, 10, 11},
-			PreferredCompression:      []uint8{2, 3, 1},
-			PreferredSymmetric:        []uint8{9, 8, 7, 3, 2},
+			CreationTime: currentTime,
+			SigType:      packet.SigTypePositiveCert,
+			PubKeyAlgo:   packet.PubKeyAlgoRSA,
+			Hash:         crypto.SHA1,
+			// these are the same defaults as standard gpg keys
+			PreferredHash: []uint8{8, 2, 9, 10, 11},
+			/*
+				1          - MD5 [HAC]                             "MD5"
+				2          - SHA-1 [FIPS180]                       "SHA1"
+				3          - RIPE-MD/160 [HAC]                     "RIPEMD160"
+				4          - Reserved
+				5          - Reserved
+				6          - Reserved
+				7          - Reserved
+				8          - SHA256 [FIPS180]
+			*/
+			PreferredCompression: []uint8{2, 3, 1},
+			/*
+				0          - Uncompressed
+				1          - ZIP [RFC1951]
+				2          - ZLIB [RFC1950]
+				3          - BZip2 [BZ2]
+				100 to 110 - Private/Experimental algorithm
+			*/
+			PreferredSymmetric: []uint8{9, 8, 7, 3, 2},
+			/*
+				0          - Plaintext or unencrypted data
+				1          - idea [idea]
+				2          - TripleDES (DES-EDE, [SCHNEIER] [HAC] -
+							168 bit key derived from 192)
+				3          - CAST5 (128 bit key, as per [RFC2144])
+				4          - Blowfish (128 bit key, 16 rounds) [BLOWFISH]
+				5          - Reserved
+				6          - Reserved
+				7          - AES with 128-bit key [AES]
+				8          - AES with 192-bit key
+				9          - AES with 256-bit key
+				10         - Twofish with 256-bit key [TWOFISH]
+				100 to 110 - Private/Experimental algorithm
+			*/
 			IsPrimaryId:               &isPrimaryID,
 			FlagsValid:                true,
 			FlagSign:                  true,
@@ -186,170 +217,65 @@ func NewEntity(name string, comment string, email string, priv *rsa.PrivateKey) 
 			IssuerKeyId:               &e.PrimaryKey.KeyId,
 		},
 	}
-
-	// PreferredSymmetric, PreferredHash, PreferredCompression []uint8
-	// constants at http://tools.ietf.org/html/rfc4880#section-9
-	/*
-		9.1.  Public-Key Algorithms
-
-		      ID           Algorithm
-		      --           ---------
-		      1          - RSA (Encrypt or Sign) [HAC]
-		      2          - RSA Encrypt-Only [HAC]
-		      3          - RSA Sign-Only [HAC]
-		      16         - Elgamal (Encrypt-Only) [ELGAMAL] [HAC]
-		      17         - DSA (Digital Signature Algorithm) [FIPS186] [HAC]
-		      18         - Reserved for Elliptic Curve
-		      19         - Reserved for ECDSA
-		      20         - Reserved (formerly Elgamal Encrypt or Sign)
-		      21         - Reserved for Diffie-Hellman (X9.42,
-		                   as defined for IETF-S/MIME)
-		      100 to 110 - Private/Experimental algorithm
-
-		   Implementations MUST implement DSA for signatures, and Elgamal for
-		   encryption.  Implementations SHOULD implement RSA keys (1).  RSA
-		   Encrypt-Only (2) and RSA Sign-Only are deprecated and SHOULD NOT be
-		   generated, but may be interpreted.  See Section 13.5.  See Section
-		   13.8 for notes on Elliptic Curve (18), ECDSA (19), Elgamal Encrypt or
-		   Sign (20), and X9.42 (21).  Implementations MAY implement any other
-		   algorithm.
-
-		9.2.  Symmetric-Key Algorithms
-
-		       ID           Algorithm
-		       --           ---------
-		       0          - Plaintext or unencrypted data
-		       1          - IDEA [IDEA]
-		       2          - TripleDES (DES-EDE, [SCHNEIER] [HAC] -
-		                    168 bit key derived from 192)
-		       3          - CAST5 (128 bit key, as per [RFC2144])
-		       4          - Blowfish (128 bit key, 16 rounds) [BLOWFISH]
-		       5          - Reserved
-		       6          - Reserved
-		       7          - AES with 128-bit key [AES]
-		       8          - AES with 192-bit key
-		       9          - AES with 256-bit key
-		       10         - Twofish with 256-bit key [TWOFISH]
-		       100 to 110 - Private/Experimental algorithm
-
-		   Implementations MUST implement TripleDES.  Implementations SHOULD
-		   implement AES-128 and CAST5.  Implementations that interoperate with
-
-
-
-
-		Callas, et al               Standards Track                    [Page 62]
-
-		RFC 4880                 OpenPGP Message Format            November 2007
-
-
-		   PGP 2.6 or earlier need to support IDEA, as that is the only
-		   symmetric cipher those versions use.  Implementations MAY implement
-		   any other algorithm.
-
-		9.3.  Compression Algorithms
-
-		       ID           Algorithm
-		       --           ---------
-		       0          - Uncompressed
-		       1          - ZIP [RFC1951]
-		       2          - ZLIB [RFC1950]
-		       3          - BZip2 [BZ2]
-		       100 to 110 - Private/Experimental algorithm
-
-		   Implementations MUST implement uncompressed data.  Implementations
-		   SHOULD implement ZIP.  Implementations MAY implement any other
-		   algorithm.
-
-		9.4.  Hash Algorithms
-
-		      ID           Algorithm                             Text Name
-		      --           ---------                             ---------
-		      1          - MD5 [HAC]                             "MD5"
-		      2          - SHA-1 [FIPS180]                       "SHA1"
-		      3          - RIPE-MD/160 [HAC]                     "RIPEMD160"
-		      4          - Reserved
-		      5          - Reserved
-		      6          - Reserved
-		      7          - Reserved
-		      8          - SHA256 [FIPS180]                      "SHA256"
-		      9          - SHA384 [FIPS180]                      "SHA384"
-		      10         - SHA512 [FIPS180]                      "SHA512"
-		      11         - SHA224 [FIPS180]                      "SHA224"
-		      100 to 110 - Private/Experimental algorithm
-
-		   Implementations MUST implement SHA-1.  Implementations MAY implement
-		   other algorithms.  MD5 is deprecated.
-	*/
 	e.Identities[uid.Id].SelfSignature.SignKey(e.PrimaryKey, e.PrivateKey, nil)
 	e.Identities[uid.Id].SelfSignature.SignUserId(uid.Id, e.PrimaryKey, e.PrivateKey, nil)
-
 	return
-
 }
 
 // NewRsaKey returns a new rsa private key
 // using the primes generated from Primes()
 // it is pretty much a copy of crypto/rsa.GenerateKey()
-func NewRsaKey(bits uint, message string, keyType int) (*rsa.PrivateKey, error) {
-	//initialize values
-	var p, q, d, n *big.Int
-	var err error
-
-	priv := new(rsa.PrivateKey)
+func NewRsaKey(bits uint, message string, keyType int) (priv *rsa.PrivateKey, err error) {
+	var p, q, d, N *big.Int
+	d = new(big.Int)
+	priv = new(rsa.PrivateKey)
 	priv.E = 65537
-
-	if bits < 1024 {
-		return nil, fmt.Errorf("Can't make a key < 1024 bits")
-	}
-
 SearchForPrimes:
 	for {
 
+		//collect some primes
 		p, q, err = Primes(message, bits/2, keyType)
 		if err != nil {
-			return nil, fmt.Errorf("Error getting primes: %s", err.Error())
+			err = fmt.Errorf("Error getting primes: %s", err)
+			return
 		}
 
-		n = new(big.Int).Mul(p, q)
-		pminus1 := new(big.Int).Sub(p, one)
-		qminus1 := new(big.Int).Sub(q, one)
-		totient := new(big.Int).Mul(pminus1, qminus1)
-
-		if n.BitLen() != int(bits) {
-			// This should happen less than the universe
-			// exploding or something
+		// compute rsa modulous and private keys
+		N = new(big.Int).Mul(p, q)
+		if N.BitLen() != int(bits) {
 			continue SearchForPrimes
 		}
 
-		g := new(big.Int)
-		d = new(big.Int)
-		e := big.NewInt(int64(priv.E))
-		g.GCD(d, nil, e, totient)
+		pminus1 := new(big.Int).Sub(p, big.NewInt(1))
+		qminus1 := new(big.Int).Sub(q, big.NewInt(1))
+		totient := new(big.Int).Mul(pminus1, qminus1)
+		gcd := new(big.Int).GCD(d, nil, big.NewInt(int64(priv.E)), totient)
 
-		if g.BitLen() == 1 {
+		if gcd.BitLen() == 1 {
 			// if gcd(d,e) == 1
 			if d.Sign() < 0 {
+				// take positive residue of d mod totient
 				d.Add(d, totient)
 			}
 			break
 		}
 	}
 
+	// build private key
 	priv.D = d
 	priv.Primes = []*big.Int{p, q}
-	priv.N = new(big.Int).Mul(p, q)
+	priv.N = N
 	priv.Precompute()
 
-	return priv, nil
+	return
 }
 
 // Primes returns p,q so that the base64
-// encoding of N=p*q contains a sassy string.
+// encoding of N=p*q contains the given message.
 // The bits option is the size of each prime
-// so a 2048 bit key should call Primes for 1024
-// bit primes. Also bits must be at least 1024
-// and message must be exactly 64 bytes.
+// so a 2048 bit key should call Primes(string,1024,type)
+// Note: It takes a 2048 bit key (so 1024 primes)
+// to have a message with 64 characters.
 // keyType represents the type of pgp key that will
 // be generated. The offset changes. Right now it
 // supports:
@@ -360,64 +286,72 @@ SearchForPrimes:
 //   keyType = 5 ---> certificate request
 //   keyType = 6 ---> self signed certificate
 //   keyType = 7 ---> authority signed cert
+//   keyType = anything else ---> custom offset
 func Primes(message string, bits uint, keyType int) (p *big.Int, q *big.Int, err error) {
 	//check input
-	if bits < 1024 {
-		//need 2048 bit keys to hold 64 char msg
-		return nil, nil, fmt.Errorf("Bits must be at least 1024 to include message")
-	}
-	if len(message) != 64 {
-		return nil, nil, fmt.Errorf("Message must be 64 bytes!")
-	}
+	/*
+		if bits < 1024 {
+			//need 2048 bit keys to hold 64 char msg
+			err = fmt.Errorf("Bits must be at least 1024 bit to include message")
+			return
+		}
+		if len(message) != 64 {
+			err = fmt.Errorf("Message must be 64 bytes!")
+			return
+		}
+	*/
 	var offset int
 	switch keyType {
-	case 1:
+	case TypePublicKeyPGP:
 		offset = 37 // pgp public key
-	case 2:
+	case TypePrivateKeyPGP:
 		offset = 37 // pgp private key
-	case 3:
+	case TypePublicKeyOpenssl:
 		offset = 15 // for openssl public key
-	case 4:
+	case TypePrivateKeyOpenssl:
 		offset = 36 // for openssl private key
-	case 5:
+	case TypeCertificateRequest:
 		offset = 39 // certificate request
-	case 6:
+	case TypeSelfSignedCertificate:
 		offset = 19 // for self signed certificate with THIS key probably
-	case 7:
+	case TypeAuthoritySignedCertificate:
 		offset = 54 // for authority signed certificates?
 	default:
 		offset = keyType //custom
 		if offset < 10 || offset > 100 {
-			return nil, nil, fmt.Errorf("Unknown type argument")
+			err = fmt.Errorf("Unknown type argument")
+			return
 		}
 	}
 
-	// decode sass to bytes
-	/*
-		sass, _ := base64.StdEncoding.DecodeString(message)
-	*/
+	// decode message to bytes
+	// then when it is encoded back to b64
+	// it will display the correct characters
+	b64msg, err := base64.StdEncoding.DecodeString(message)
+	if err != nil {
+		err = fmt.Errorf("Error decoding message: %s", err)
+		return
+	}
 
 	// geneterate primes
 	p, err = rand.Prime(rand.Reader, int(bits))
 	if err != nil {
-		fmt.Errorf("Error generating primes: %s", err)
+		err = fmt.Errorf("Error generating primes: %s", err)
 		return
 	}
 	q, err = rand.Prime(rand.Reader, int(bits))
 	if err != nil {
-		fmt.Errorf("Error generating primes: %s", err)
+		err = fmt.Errorf("Error generating primes: %s", err)
 		return
 	}
 	N := new(big.Int).Mul(p, q)
 
-	/*
-		// insert sass
-		b := N.Bytes()
-		for i := 0; i < len(sass); i++ {
-			b[i+offset] = sass[i]
-		}
-		N.SetBytes(b)
-	*/
+	// insert message
+	b := N.Bytes()
+	for i := 0; i < len(b64msg); i++ {
+		b[i+offset] = b64msg[i]
+	}
+	N.SetBytes(b)
 
 	// get a new q prime
 	qtmp := new(big.Int).Div(N, p)

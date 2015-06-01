@@ -12,18 +12,31 @@ import (
 
 func main() {
 	app := cli.NewApp()
-	app.Name = "PSP"
-	app.Usage = "Generate fun RSA keys!"
+	app.Name = "psp"
+	app.Usage = `Generate fun RSA keys!
+
+EXAMPLES:
+    psp --name Mr.Science -m "////ThisIsAMessageWithBase64CharsSee////////" --primes`
 
 	app.Flags = []cli.Flag{
 		cli.IntFlag{
 			Name:  "offset",
 			Value: psp.TypePublicKeyPGP,
-			Usage: "Number of bytes message is offset in key. Default: 37.",
+			Usage: `Number of bytes message is offset in key. Default: 37.
+      For the message to appear in certain places requires a different offset.
+      Available offsets are:
+        PublicKeyPGP               = 1 (shortcut for 37)
+        PrivateKeyPGP              = 2 (37)
+        PublicKeyOpenssl           = 3 (15)
+        PrivateKeyOpenssl          = 4 (36)
+        CertificateRequest         = 5 (39)
+        SelfSignedCertificate      = 6 (19)
+        AuthoritySignedCertificate = 7 (54)
+        Custom                     = 10..100`,
 		},
 		cli.StringFlag{
 			Name:  "name, n",
-			Value: "Anyonomous",
+			Value: "anonymous",
 			Usage: "The name associated to the key.",
 		},
 		cli.StringFlag{
@@ -34,7 +47,7 @@ func main() {
 		cli.StringFlag{
 			Name:  "message, m",
 			Value: "",
-			Usage: "A message to embed in your key at specified offset. 64 characters is best.",
+			Usage: "A message to embed in your key. 64 characters is best.",
 		},
 		cli.IntFlag{
 			Name:  "bits, b",
@@ -44,6 +57,14 @@ func main() {
 		cli.BoolTFlag{
 			Name:  "primes, p",
 			Usage: "Prints primes as well",
+		},
+		cli.BoolTFlag{
+			Name:  "pem",
+			Usage: "Outputs public/private key in PEM format.",
+		},
+		cli.BoolTFlag{
+			Name:  "cert, c",
+			Usage: "Also outputs a certificate request. Requires extra information.",
 		},
 	}
 
@@ -72,10 +93,13 @@ func main() {
 			log.Fatalf("Error: %s", err.Error())
 			return
 		}
+
 		s := fmt.Sprintf("%s\n%s\n", pub, priv)
 		if c.BoolT("primes") {
 			s += fmt.Sprintf("p=\n%x\nq=\n%x\n", k.Primes[0], k.Primes[1])
 		}
+
+		fmt.Print(s)
 	}
 
 	app.Run(os.Args)

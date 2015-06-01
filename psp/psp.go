@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
@@ -68,40 +67,6 @@ func ExportPublicPEM(pub *rsa.PublicKey) (string, error) {
 	err = pem.Encode(w, &block)
 	if err != nil {
 		return "", fmt.Errorf("Error writing PEM: %s", err)
-	}
-	return w.String(), nil
-}
-
-// ExportCertificateRequest returns certificate signing
-// request with the given entity/data encoded in PEM suitable for
-// use with openssl and giving to a CA.
-// To inspect a certifcate use
-//    openssl x509 -in cert_file -noout -text
-// To inspect a certificate request use
-//   openssl req -in csr_file -noout -text
-func ExportCertificateRequest(e *openpgp.Entity) (string, error) {
-	var err error
-	// TODO - make template an input with some defaults
-	template := x509.CertificateRequest{
-		Subject: pkix.Name{
-			CommonName:         "domain.com",
-			Country:            []string{"AU"},
-			Province:           []string{"Some-State"},
-			Locality:           []string{"MyCity"},
-			Organization:       []string{"Company Ltd"},
-			OrganizationalUnit: []string{"IT"},
-		},
-		EmailAddresses: []string{"test@email.com"},
-	}
-	key := e.PrivateKey.PrivateKey
-	csr, err := x509.CreateCertificateRequest(rand.Reader, &template, key)
-	if err != nil {
-		return "", fmt.Errorf("Error generating CSR: %s", err)
-	}
-	w := bytes.NewBuffer(nil)
-	err = pem.Encode(w, &pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csr})
-	if err != nil {
-		return "", fmt.Errorf("Error generating CSR: %s", err)
 	}
 	return w.String(), nil
 }

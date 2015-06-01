@@ -1,6 +1,6 @@
-# psp (Pretty Sassy Privacy)
+# psp (Pretty Stupid Privacy)
 
-A sassier PGP
+A sillier PGP
 
 Based on https://rya.nc/cert-tricks.html
 

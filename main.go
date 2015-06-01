@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rsa"
 	"fmt"
 	"log"
 	"math/rand"
@@ -54,17 +55,13 @@ EXAMPLES:
 			Value: 2048,
 			Usage: "Size of the key.",
 		},
-		cli.BoolTFlag{
+		cli.BoolFlag{
 			Name:  "primes, p",
 			Usage: "Prints primes as well",
 		},
-		cli.BoolTFlag{
+		cli.BoolFlag{
 			Name:  "pem",
 			Usage: "Outputs public/private key in PEM format.",
-		},
-		cli.BoolTFlag{
-			Name:  "cert, c",
-			Usage: "Also outputs a certificate request. Requires extra information.",
 		},
 	}
 
@@ -83,15 +80,30 @@ EXAMPLES:
 			log.Fatalf("Error: %s", err.Error())
 			return
 		}
-		pub, err := psp.ExportPublicPGP(e)
-		if err != nil {
-			log.Fatalf("Error: %s", err.Error())
-			return
-		}
-		priv, err := psp.ExportPrivatePGP(e)
-		if err != nil {
-			log.Fatalf("Error: %s", err.Error())
-			return
+		var pub, priv string
+
+		if c.Bool("pem") {
+			pub, err = psp.ExportPublicPEM(k.Public().(*rsa.PublicKey))
+			if err != nil {
+				log.Fatalf("Error: %s", err.Error())
+				return
+			}
+			priv, err = psp.ExportPrivatePEM(k)
+			if err != nil {
+				log.Fatalf("Error: %s", err.Error())
+				return
+			}
+		} else {
+			pub, err = psp.ExportPublicPGP(e)
+			if err != nil {
+				log.Fatalf("Error: %s", err.Error())
+				return
+			}
+			priv, err = psp.ExportPrivatePGP(e)
+			if err != nil {
+				log.Fatalf("Error: %s", err.Error())
+				return
+			}
 		}
 
 		s := fmt.Sprintf("%s\n%s\n", pub, priv)

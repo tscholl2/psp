@@ -24,8 +24,8 @@ import (
 const (
 	TypePublicKeyPGP               = 1
 	TypePrivateKeyPGP              = 2
-	TypePublicKeyOpenssl           = 3
-	TypePrivateKeyOpenssl          = 4
+	TypePublicKeyPEM               = 3
+	TypePrivateKeyPEM              = 4
 	TypeCertificateRequest         = 5
 	TypeSelfSignedCertificate      = 6
 	TypeAuthoritySignedCertificate = 7
@@ -246,35 +246,30 @@ SearchForPrimes:
 // supports:
 //   keyType = 1 ---> pgp public key
 //   keyType = 2 ---> pgp private key
-//   keyType = 3 ---> openssl public key
-//   keyType = 4 ---> openssl private key
+//   keyType = 3 ---> pem public key
+//   keyType = 4 ---> pem private key
 //   keyType = 5 ---> certificate request
 //   keyType = 6 ---> self signed certificate
 //   keyType = 7 ---> authority signed cert
 //   keyType = anything else ---> custom offset
 func Primes(message string, bits uint, keyType int) (p *big.Int, q *big.Int, err error) {
 	//check input
-	/*
-		if bits < 1024 {
-			//need 2048 bit keys to hold 64 char msg
-			err = fmt.Errorf("Bits must be at least 1024 bit to include message")
-			return
-		}
-		if len(message) != 64 {
-			err = fmt.Errorf("Message must be 64 bytes!")
-			return
-		}
-	*/
+
+	if bits < 1024 {
+		//need 2048 bit keys to hold 64 char msg
+		err = fmt.Errorf("Bits must be at least 1024 bit to include message")
+		return
+	}
 	var offset int
 	switch keyType {
 	case TypePublicKeyPGP:
 		offset = 37 // pgp public key
 	case TypePrivateKeyPGP:
 		offset = 37 // pgp private key
-	case TypePublicKeyOpenssl:
-		offset = 15 // for openssl public key
-	case TypePrivateKeyOpenssl:
-		offset = 36 // for openssl private key
+	case TypePublicKeyPEM:
+		offset = 15 // for pem public key
+	case TypePrivateKeyPEM:
+		offset = 36 // for pem private key
 	case TypeCertificateRequest:
 		offset = 39 // certificate request
 	case TypeSelfSignedCertificate:
@@ -284,7 +279,7 @@ func Primes(message string, bits uint, keyType int) (p *big.Int, q *big.Int, err
 	default:
 		offset = keyType //custom
 		if offset < 10 || offset > 100 {
-			err = fmt.Errorf("Unknown type argument")
+			err = fmt.Errorf("Unknown offset argument")
 			return
 		}
 	}

@@ -12,12 +12,12 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/tscholl2/goprime"
-
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/armor"
 	"golang.org/x/crypto/openpgp/errors"
 	"golang.org/x/crypto/openpgp/packet"
+
+	"github.com/tscholl2/prime/prime"
 )
 
 //Key Types
@@ -315,7 +315,7 @@ func Primes(message string, bits uint, keyType int) (p *big.Int, q *big.Int, err
 
 	// get a new q prime
 	qtmp := new(big.Int).Div(N, p)
-	q = goprime.NextPrime(qtmp)
+	q = prime.NextPrime(qtmp)
 
 	return
 }
